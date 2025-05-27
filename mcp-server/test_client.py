@@ -63,14 +63,22 @@ class MCPClient:
         response = await self.session.list_tools()
         # to make tool calling work on openai.
         available_tools = []
+        tool_names = []
         for tool in response.tools:
+            # FIXME: this is just to make this demo work, see below
+            tool_names.append(tool.name)
+            for param in tool.inputSchema["properties"].values():
+                param["description"] = param["title"]
+            print(f"tool input schema to openai: {tool.inputSchema}")
+            # FIXME: When building MCP server tools, compile such object within the definition
+            #  so that the client can use it directly.
             available_tools.append(
                 {
                     "type": "function",
                     "function": {
                         "name": tool.name,
                         "description": tool.description,
-                        "input_schema": tool.inputSchema,
+                        "parameters": tool.inputSchema,
                     },
                 }
             )
@@ -84,20 +92,19 @@ class MCPClient:
             tools=available_tools,
         )
 
+        print(f"finish_reason: {finish_reason}, response_message: {response_message}")
         # Process response and handle tool calls
         tool_results = []
         final_text = []
 
-        if finish_reason == "tool_calls":
-            tool_name = response_message.tool_calls[0].function.name
-            tool_args = json.loads(response_message.tool_calls[0].function.arguments)
+        if finish_reason == "tool_calls" or finish_reason in tool_names:
+            tool_name = finish_reason
+            tool_args = response_message
         else:
             tool_name = None
             tool_args = None
-            # tool_name = "surround"
-            # tool_args = {"character": "abc", "main_body": "jjj"}
-        final_text.append(response_message.content)
-        print(f"llm response: {response_message.content}")
+        # final_text.append(response_message.content)
+        # print(f"llm response: {response_message.content}")
 
         print(f"tool {tool_name}, args {tool_args}")
         # Execute tool call
@@ -105,14 +112,6 @@ class MCPClient:
         tool_results.append({"call": tool_name, "result": result})
         print(f"tool result: {result}")
         final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
-
-        finish_reason, response_message = llm.inference(
-            system_prompt="You are a helpful assistant",
-            input=messages,
-            tools=available_tools,
-        )
-
-        final_text.append(response_message.content)
 
         return "\n".join(final_text)
 
