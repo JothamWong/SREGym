@@ -41,7 +41,7 @@ class HumanAgent:
         self.session = PromptSession()
         self.console = Console(force_terminal=True, color_system="auto")
         self.orchestrator = orchestrator
-        self.pids = self.orchestrator.probs.get_problem_ids()
+        self.pids = self.orchestrator.problems.get_problem_ids()
         self.completer = WordCompleter(self.pids, ignore_case=True, match_middle=True)
 
     def display_welcome_message(self):

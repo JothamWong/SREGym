@@ -161,7 +161,7 @@ AIOpsLab makes it extremely easy to develop and evaluate your agents. You can on
 
 3. **Evaluate your agent on a problem**:
 
-    1. **Initialize a problem**: AIOpsLab provides a list of problems that you can evaluate your agent on. Find the list of available problems [here](/aiopslab/orchestrator/problems/registry.py) or using `orch.probs.get_problem_ids()`. Now initialize a problem by its ID: 
+    1. **Initialize a problem**: AIOpsLab provides a list of problems that you can evaluate your agent on. Find the list of available problems [here](/aiopslab/orchestrator/problems/registry.py) or using `orch.problems.get_problem_ids()`. Now initialize a problem by its ID: 
 
         ```python
         problem_desc, instructs, apis = orch.init_problem("k8s_target_port-misconfig-mitigation-1")
