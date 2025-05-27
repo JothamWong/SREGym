@@ -64,7 +64,7 @@ class LiteLLMBackend:
 
     def inference(
         self, system_prompt: str, input: str, tools: Optional[list[any]] = None
-    ) -> str:
+    ) -> (str, str):
         logger.info(f"NL input received: {input}")
 
         messages = []
@@ -121,4 +121,4 @@ class LiteLLMBackend:
             )
             return function_name, function_arguments
         else:
-            return completion.choices[0].message.content
+            return finish_reason, completion.choices[0].message

@@ -1,6 +1,7 @@
 """Official example mcp client from anthropic, source: https://gist.github.com/zckly/f3f28ea731e096e53b39b47bf0a2d4b1"""
 
 import asyncio
+import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
@@ -77,7 +78,7 @@ class MCPClient:
         # print(available_tools[0].type)
 
         llm = get_llm_backend_for_tools()
-        response = llm.inference(
+        finish_reason, response_message = llm.inference(
             system_prompt="You are a helpful assistant",
             input=messages,
             tools=available_tools,
@@ -87,30 +88,31 @@ class MCPClient:
         tool_results = []
         final_text = []
 
-        for content in response.content:
-            if content.type == "text":
-                final_text.append(content.text)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
+        if finish_reason == "tool_calls":
+            tool_name = response_message.tool_calls[0].function.name
+            tool_args = json.loads(response_message.tool_calls[0].function.arguments)
+        else:
+            tool_name = None
+            tool_args = None
+            # tool_name = "surround"
+            # tool_args = {"character": "abc", "main_body": "jjj"}
+        final_text.append(response_message.content)
+        print(f"llm response: {response_message.content}")
 
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                tool_results.append({"call": tool_name, "result": result})
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
+        print(f"tool {tool_name}, args {tool_args}")
+        # Execute tool call
+        result = await self.session.call_tool(tool_name, tool_args)
+        tool_results.append({"call": tool_name, "result": result})
+        print(f"tool result: {result}")
+        final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
 
-                # Continue conversation with tool results
-                if hasattr(content, "text") and content.text:
-                    messages.append({"role": "assistant", "content": content.text})
-                messages.append({"role": "user", "content": result.content})
+        finish_reason, response_message = llm.inference(
+            system_prompt="You are a helpful assistant",
+            input=messages,
+            tools=available_tools,
+        )
 
-                response = llm.inference(
-                    system_prompt="You are a helpful assistant",
-                    input=messages,
-                    tools=available_tools,
-                )
-
-                final_text.append(response.content[0].text)
+        final_text.append(response_message.content)
 
         return "\n".join(final_text)
 
