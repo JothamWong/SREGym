@@ -1,5 +1,5 @@
-from aiopslab.orchestrator.evaluators.quantitative import is_exact_match
 from aiopslab.orchestrator.oracles.base import Oracle
+from aiopslab.orchestrator.oracles.utils import is_exact_match
 
 
 class DetectionOracle(Oracle):
