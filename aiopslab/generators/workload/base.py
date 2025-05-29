@@ -106,9 +106,7 @@ class TaskedWorkloadGenerator(WorkloadGenerator):
         tempid = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
         self.stop_event = threading.Event()
-        self.job_monitor = threading.Thread(
-            target=_run, args=(self,), name=f"workload_gen_{tempid}", daemon=True
-        )
+        self.job_monitor = threading.Thread(target=_run, args=(self,), name=f"workload_gen_{tempid}", daemon=True)
         self.job_monitor.start()
 
     def stop(self):
@@ -143,9 +141,7 @@ class TaskedWorkloadGenerator(WorkloadGenerator):
                 return self.log_history[start_entry:end_entry]
             time.sleep(3)
 
-        raise TimeoutError(
-            "Workload generator did not collect enough data within the timeout period."
-        )
+        raise TimeoutError("Workload generator did not collect enough data within the timeout period.")
 
     def recent_entries(self, duration=30):
         """

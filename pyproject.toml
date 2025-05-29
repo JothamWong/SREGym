@@ -211,3 +211,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["aiopslab", "clients"]
+
+[tool.black]
+target-version = ['py312']
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
