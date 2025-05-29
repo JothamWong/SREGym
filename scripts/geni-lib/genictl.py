@@ -1,16 +1,17 @@
+import argparse
 import datetime
 import json
-import argparse
-from geni.aggregate.cloudlab import Utah, Clemson, Wisconsin
-from utils import parse_sliver_info
-import geni.util
-from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.enums import EditingMode
 
 # suppress warnings
 import warnings
+
+import geni.util
+from geni.aggregate.cloudlab import Clemson, Utah, Wisconsin
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.enums import EditingMode
+from prompt_toolkit.key_binding import KeyBindings
+from utils import parse_sliver_info
 
 warnings.filterwarnings("ignore")
 
@@ -89,24 +90,7 @@ def list_slices(context, args):
     try:
         print("Listing slices...")
         res = context.cf.listSlices(context)
-        if args.json:
-            print(json.dumps(res, indent=2))
-        else:
-            for k, v in res.items():
-                try:
-                    if (
-                        datetime.datetime.strptime(
-                            v["SLICE_EXPIRATION"], "%Y-%m-%dT%H:%M:%SZ"
-                        )
-                        > datetime.datetime.now()
-                    ):
-                        print(f"SLICE_NAME: {v['SLICE_NAME']}")
-                        print(f"SLICE_DESCRIPTION: {v['SLICE_DESCRIPTION']}")
-                        print(f"SLICE_CREATION: {v['SLICE_CREATION']}")
-                        print(f"SLICE_EXPIRATION: {v['SLICE_EXPIRATION']}")
-                        print(f"SLICE_PROJECT_URN: {v['SLICE_PROJECT_URN']}\n")
-                except Exception as e:
-                    pass
+        print(json.dumps(res, indent=2))
     except Exception as e:
         print(f"Error: {e}")
 
@@ -169,26 +153,6 @@ def main():
     ]
     sites = ["utah", "clemson", "wisconsin"]
 
-    command_completer = WordCompleter(commands, ignore_case=True)
-    site_completer = WordCompleter(sites, ignore_case=True)
-
-    kb = KeyBindings()
-
-    session = PromptSession(
-        multiline=False,
-        completer=command_completer,
-        editing_mode=EditingMode.EMACS,
-        complete_while_typing=True,
-        key_bindings=kb,
-    )
-
-    site_session = PromptSession(
-        completer=site_completer,
-        editing_mode=EditingMode.EMACS,
-        complete_while_typing=True,
-        key_bindings=kb,
-    )
-
     parser = argparse.ArgumentParser(
         description="GENI CloudLab Experiment Management Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -215,7 +179,7 @@ def main():
     create_sliver_parser.add_argument(
         "--site",
         choices=["utah", "clemson", "wisconsin"],
-        default="utah",
+        required=True,
         help="CloudLab site",
     )
 
@@ -224,7 +188,7 @@ def main():
     status_parser.add_argument(
         "--site",
         choices=["utah", "clemson", "wisconsin"],
-        default="utah",
+        required=True,
         help="CloudLab site",
     )
 
@@ -242,13 +206,8 @@ def main():
     renew_sliver_parser.add_argument(
         "--site",
         choices=["utah", "clemson", "wisconsin"],
-        default="utah",
+        required=True,
         help="CloudLab site",
-    )
-
-    list_slices_parser = subparsers.add_parser("list-slices", help="List all slices")
-    list_slices_parser.add_argument(
-        "--json", action="store_true", help="Output in JSON format"
     )
 
     list_spec_parser = subparsers.add_parser(
@@ -258,7 +217,7 @@ def main():
     list_spec_parser.add_argument(
         "--site",
         choices=["utah", "clemson", "wisconsin"],
-        default="utah",
+        required=True,
         help="CloudLab site",
     )
 
@@ -267,8 +226,59 @@ def main():
     delete_parser.add_argument(
         "--site",
         choices=["utah", "clemson", "wisconsin"],
-        default="utah",
+        required=True,
         help="CloudLab site",
+    )
+
+    list_slices_parser = subparsers.add_parser("list-slices", help="List all slices")
+
+    # Add interactive mode flag
+    parser.add_argument(
+        "--interactive", "-i", action="store_true", help="Run in interactive mode"
+    )
+
+    args = parser.parse_args()
+
+    if args.interactive:
+        run_interactive_mode(parser, commands, sites)
+    else:
+        if not args.command:
+            parser.print_help()
+            return
+
+        context = geni.util.loadContext()
+        commands_map = {
+            "create-slice": create_slice,
+            "create-sliver": create_sliver,
+            "sliver-status": get_sliver_status,
+            "renew-slice": renew_slice,
+            "renew-sliver": renew_sliver,
+            "list-slices": list_slices,
+            "sliver-spec": list_sliver_spec,
+            "delete-sliver": delete_sliver,
+        }
+        commands_map[args.command](context, args)
+
+
+def run_interactive_mode(parser, commands, sites):
+    command_completer = WordCompleter(commands, ignore_case=True)
+    site_completer = WordCompleter(sites, ignore_case=True)
+
+    kb = KeyBindings()
+
+    session = PromptSession(
+        multiline=False,
+        completer=command_completer,
+        editing_mode=EditingMode.EMACS,
+        complete_while_typing=True,
+        key_bindings=kb,
+    )
+
+    site_session = PromptSession(
+        completer=site_completer,
+        editing_mode=EditingMode.EMACS,
+        complete_while_typing=True,
+        key_bindings=kb,
     )
 
     parser.print_help()
@@ -287,10 +297,11 @@ def main():
                 continue
 
             input_parts = command_input.split()
-
             args_list = input_parts
 
-            if input_parts[0] in [
+            if input_parts[0] == "list-slices":
+                args_list = ["list-slices"]
+            elif input_parts[0] in [
                 "create-sliver",
                 "sliver-status",
                 "renew-sliver",
@@ -356,18 +367,13 @@ def main():
                 )
                 args_list.extend(["--description", description])
 
-            if input_parts[0] == "list-slices":
-                json_output = input("Output in JSON format? (y/n): ").lower() == "y"
-                if json_output:
-                    args_list.append("--json")
-
             args = parser.parse_args(args_list)
             if not args.command:
                 parser.print_help()
                 continue
 
             context = geni.util.loadContext()
-            commands = {
+            commands_map = {
                 "create-slice": create_slice,
                 "create-sliver": create_sliver,
                 "sliver-status": get_sliver_status,
@@ -377,7 +383,7 @@ def main():
                 "sliver-spec": list_sliver_spec,
                 "delete-sliver": delete_sliver,
             }
-            commands[args.command](context, args)
+            commands_map[args.command](context, args)
 
         except Exception as e:
             print(f"Error: {e}")

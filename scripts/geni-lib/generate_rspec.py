@@ -1,5 +1,4 @@
 import geni.portal as portal
-from geni.rspec import RSpec
 
 RSPEC_FILE = "rspecs/test.xml"
 
