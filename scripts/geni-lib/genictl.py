@@ -139,17 +139,23 @@ def get_aggregate(site):
     sites = {"utah": Utah, "clemson": Clemson, "wisconsin": Wisconsin}
     return sites.get(site.lower(), Utah)
 
+
 def get_hardware_info(context=None, args=None):
     hardware_info_list = collect_hardware_info_from_html()
     if hardware_info_list:
-        print(f"\n{'Hardware Name':<20} | {'Cluster Name':<30} | {'Total':<7} | {'Free':<7}")
+        print(
+            f"\n{'Hardware Name':<20} | {'Cluster Name':<30} | {'Total':<7} | {'Free':<7}"
+        )
         print("-" * 100)
-        
+
         for item in hardware_info_list:
-            if item['total'] > 0 or item['free'] > 0:
-                print(f"{item['hardware_name']:<20} | {item['cluster_name']:<30} | {item['total']:<7} | {item['free']:<7}")
+            if item["total"] > 0 or item["free"] > 0:
+                print(
+                    f"{item['hardware_name']:<20} | {item['cluster_name']:<30} | {item['total']:<7} | {item['free']:<7}"
+                )
     else:
         print("No hardware information available")
+
 
 def main():
     commands = [
@@ -245,7 +251,9 @@ def main():
     list_slices_parser = subparsers.add_parser("list-slices", help="List all slices")
 
     # Add get-hardware-info command
-    subparsers.add_parser("get-hardware-info", help="Get available hardware information from CloudLab")
+    subparsers.add_parser(
+        "get-hardware-info", help="Get available hardware information from CloudLab"
+    )
 
     # Add interactive mode flag
     parser.add_argument(
@@ -399,7 +407,7 @@ def run_interactive_mode(parser, commands, sites):
                 "sliver-spec": list_sliver_spec,
                 "delete-sliver": delete_sliver,
                 "get-hardware-info": get_hardware_info,
-                }
+            }
             commands_map[args.command](context, args)
 
         except Exception as e:

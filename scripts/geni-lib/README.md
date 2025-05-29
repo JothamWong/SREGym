@@ -169,3 +169,15 @@ python3 genictl.py -i
    ```bash
    > get-hardware-info
    ```
+
+## Quick Test
+
+Under the `scripts/geni-lib/tests` directory, there is a script called `create_experiment.py` that can be used to create a quick experiment.
+
+```bash
+cd scripts/geni-lib/tests
+python3 create_experiment.py
+```
+
+This will create a 3-node experiment with 3 c220g5 nodes in the Wisconsin site for 1 hour.
+The login info will be saved to a file called `<slice_name>.login.info.txt`.
