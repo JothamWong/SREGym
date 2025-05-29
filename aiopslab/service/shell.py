@@ -23,17 +23,8 @@ class Shell:
         """Execute a shell command on localhost, via SSH, or inside kind's control-plane container."""
         k8s_host = config.get("k8s_host", "localhost")  # Default to localhost
 
-        if k8s_host == "kind":
-            return Shell.docker_exec("kind-control-plane", command)
-
-        elif k8s_host == "localhost":
-            print(
-                "[WARNING] Running commands on localhost is not recommended. "
-                "This may pose safety and security risks when using an AI agent locally. "
-                "I hope you know what you're doing!!!"
-            )
+        if k8s_host == "localhost":
             return Shell.local_exec(command, input_data, cwd)
-
         else:
             k8s_user = config.get("k8s_user")
             ssh_key_path = config.get("ssh_key_path", "~/.ssh/id_rsa")
@@ -93,32 +84,3 @@ class Shell:
 
         finally:
             ssh_client.close()
-
-    @staticmethod
-    def docker_exec(container_name: str, command: str):
-        """Execute a command inside a running Docker container."""
-        escaped_command = command.replace('"', '\\"')
-
-        docker_command = f'docker exec {container_name} sh -c "{escaped_command}"'
-
-        try:
-            out = subprocess.run(
-                docker_command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
-            )
-
-            if out.stderr or out.returncode != 0:
-                error_message = out.stderr.decode("utf-8")
-                print(f"[ERROR] Docker command execution failed: {error_message}")
-                return error_message
-            else:
-                output_message = out.stdout.decode("utf-8")
-                print(output_message)
-                return output_message
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to execute command in Docker container: {container_name}\nError: {str(e)}"
-            )
