@@ -43,15 +43,17 @@ class Wrk2WorkloadGenerator(TaskedWorkloadGenerator):
                     return True
         return False
 
-    def start_workload(self):
+    def create_task(self):
         namespace = "default"
         configmap_name = "wrk2-payload-script"
 
-        self.wrk.create_configmap(
-            name=configmap_name,
-            namespace=namespace,
-            payload_script_path=self.payload_script,
-        )
+        if not hasattr(self, "configmap_created") or not self.configmap_created:
+            self.wrk.create_configmap(
+                name=configmap_name,
+                namespace=namespace,
+                payload_script_path=self.payload_script,
+            )
+            self.configmap_created = True
 
         self.wrk.create_wrk_job(
             job_name=self.job_name,
@@ -59,9 +61,6 @@ class Wrk2WorkloadGenerator(TaskedWorkloadGenerator):
             payload_script=self.payload_script.name,
             url=self.url,
         )
-
-    def create_task(self):
-        self.job_name = "wrk2-job"
 
     def wait_until_complete(self):
         namespace = "default"
@@ -95,8 +94,36 @@ class Wrk2WorkloadGenerator(TaskedWorkloadGenerator):
                 job_name=self.job_name,
                 namespace=namespace,
             )
-            logs = "\n".join(logs.split("\n"))
+            logs = logs.split("\n")
         except Exception as e:
             return f"Workload Generator Error: {e}"
 
-        return logs
+        # -----------------------------------------------------------------------
+        #   10 requests in 10.00s, 2.62KB read
+        #   Non-2xx or 3xx responses: 10
+
+        number = -1
+        ok = True
+        try:
+            for i, log in enumerate(logs):
+                if "-" * 35 in log and "requests" in logs[i + 1]:
+                    parts = logs[i + 1].split(" ")
+                    for j, part in enumerate(parts):
+                        if part is not "":
+                            number = parts[j]
+                            assert parts[j + 1] == "requests"
+                            break
+                if "Non-2xx or 3xx responses" in log:
+                    ok = False
+
+            number = int(number)
+        except ValueError:
+            print(f"Error parsing number from log: {number}")
+            number = 0
+
+        return WorkloadEntry(
+            time=time.time(),
+            number=number,
+            log="\n".join(logs),
+            ok=ok,
+        )

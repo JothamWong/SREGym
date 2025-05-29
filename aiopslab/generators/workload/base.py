@@ -96,12 +96,15 @@ class TaskedWorkloadGenerator(WorkloadGenerator):
     def start(self):
         def _run(self):
             while not self.stop_event.is_set():
+                # TODO (@jiaqi): Restart this inside the container instead of recreating
                 self.create_task()
                 start_time = time.time()
                 self.wait_until_complete()
                 entry = self.retrievelog()
                 entry.time = start_time
                 self.log_history.append(entry)
+
+                time.sleep(5)  # Sleep for a while before starting the next workload
 
         tempid = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 

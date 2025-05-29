@@ -3,17 +3,18 @@
 
 """Assign pods to non existent node problem for the SocialNetwork application."""
 
-from typing import Any
 import time
+from typing import Any
 
-from aiopslab.orchestrator.tasks import *
-from aiopslab.orchestrator.evaluators.quantitative import is_exact_match, is_subset
-from aiopslab.service.kubectl import KubeCtl
-from aiopslab.service.apps.socialnet import SocialNetwork
-from aiopslab.generators.workload.wrk import Wrk
 from aiopslab.generators.fault.inject_virtual import VirtualizationFaultInjector
-from aiopslab.session import SessionItem
+from aiopslab.generators.workload.wrk import Wrk
+from aiopslab.generators.workload.wrk2 import Wrk2WorkloadGenerator
+from aiopslab.orchestrator.evaluators.quantitative import is_exact_match, is_subset
+from aiopslab.orchestrator.tasks import *
 from aiopslab.paths import TARGET_MICROSERVICES
+from aiopslab.service.apps.socialnet import SocialNetwork
+from aiopslab.service.kubectl import KubeCtl
+from aiopslab.session import SessionItem
 
 from .helpers import get_frontend_url
 
@@ -25,20 +26,19 @@ class AssignNonExistentNodeSocialNetBaseTask:
         self.namespace = self.app.namespace
         self.faulty_service = "user-service"
 
-        self.payload_script = (
-            TARGET_MICROSERVICES
-            / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
-        )
+        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
 
     def start_workload(self):
         print("== Start Workload ==")
         frontend_url = get_frontend_url(self.app)
 
         wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
-        wrk.start_workload(
+        wrk2 = Wrk2WorkloadGenerator(
+            wrk=wrk,
             payload_script=self.payload_script,
             url=f"{frontend_url}/wrk2-api/post/compose",
         )
+        wrk2.start()
 
     def inject_fault(self):
         print("== Fault Injection ==")
@@ -61,9 +61,7 @@ class AssignNonExistentNodeSocialNetBaseTask:
 
 
 ################## Detection Problem ##################
-class AssignNonExistentNodeSocialNetDetection(
-    AssignNonExistentNodeSocialNetBaseTask, DetectionTask
-):
+class AssignNonExistentNodeSocialNetDetection(AssignNonExistentNodeSocialNetBaseTask, DetectionTask):
     def __init__(self):
         AssignNonExistentNodeSocialNetBaseTask.__init__(self)
         DetectionTask.__init__(self, self.app)
@@ -87,9 +85,7 @@ class AssignNonExistentNodeSocialNetDetection(
 
 
 ################## Localization Problem ##################
-class AssignNonExistentNodeSocialNetLocalization(
-    AssignNonExistentNodeSocialNetBaseTask, LocalizationTask
-):
+class AssignNonExistentNodeSocialNetLocalization(AssignNonExistentNodeSocialNetBaseTask, LocalizationTask):
     def __init__(self):
         AssignNonExistentNodeSocialNetBaseTask.__init__(self)
         LocalizationTask.__init__(self, self.app)
@@ -130,9 +126,7 @@ class AssignNonExistentNodeSocialNetLocalization(
 
 
 ################## Analysis Problem ##################
-class AssignNonExistentNodeSocialNetAnalysis(
-    AssignNonExistentNodeSocialNetBaseTask, AnalysisTask
-):
+class AssignNonExistentNodeSocialNetAnalysis(AssignNonExistentNodeSocialNetBaseTask, AnalysisTask):
     def __init__(self):
         AssignNonExistentNodeSocialNetBaseTask.__init__(self)
         AnalysisTask.__init__(self, self.app)
@@ -148,9 +142,7 @@ class AssignNonExistentNodeSocialNetAnalysis(
             provided_system_level = soln.get("system_level", "").strip().lower()
             provided_fault_type = soln.get("fault_type", "").strip().lower()
 
-            is_system_level_correct = (
-                provided_system_level == expected_system_level.lower()
-            )
+            is_system_level_correct = provided_system_level == expected_system_level.lower()
             is_fault_type_correct = provided_fault_type == expected_fault_type.lower()
 
             self.results["system_level_correct"] = is_system_level_correct
@@ -171,9 +163,7 @@ class AssignNonExistentNodeSocialNetAnalysis(
 
 
 ################## Mitigation Problem ##################
-class AssignNonExistentNodeSocialNetMitigation(
-    AssignNonExistentNodeSocialNetBaseTask, MitigationTask
-):
+class AssignNonExistentNodeSocialNetMitigation(AssignNonExistentNodeSocialNetBaseTask, MitigationTask):
     def __init__(self):
         AssignNonExistentNodeSocialNetBaseTask.__init__(self)
         MitigationTask.__init__(self, self.app)
@@ -187,9 +177,7 @@ class AssignNonExistentNodeSocialNetMitigation(
         all_normal = True
 
         # Check if the faulty service exists
-        faulty_service_exists = any(
-            self.faulty_service in pod.metadata.name for pod in pod_list.items
-        )
+        faulty_service_exists = any(self.faulty_service in pod.metadata.name for pod in pod_list.items)
         if not faulty_service_exists:
             print(f"Pod named {self.faulty_service} does not exist.")
             all_normal = False
@@ -199,12 +187,9 @@ class AssignNonExistentNodeSocialNetMitigation(
                     for container_status in pod.status.container_statuses:
                         if (
                             container_status.state.waiting
-                            and container_status.state.waiting.reason
-                            == "CrashLoopBackOff"
+                            and container_status.state.waiting.reason == "CrashLoopBackOff"
                         ):
-                            print(
-                                f"Container {container_status.name} is in CrashLoopBackOff"
-                            )
+                            print(f"Container {container_status.name} is in CrashLoopBackOff")
                             all_normal = False
                         elif (
                             container_status.state.terminated
