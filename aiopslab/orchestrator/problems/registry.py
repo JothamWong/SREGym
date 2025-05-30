@@ -1,14 +1,3 @@
-# All problems are commented out as they have to be implemented with the new problem interface
-
-# from aiopslab.orchestrator.problems.ad_service_failure import *
-# from aiopslab.orchestrator.problems.ad_service_high_cpu import *
-# from aiopslab.orchestrator.problems.ad_service_manual_gc import *
-# from aiopslab.orchestrator.problems.assign_non_existent_node import *
-# from aiopslab.orchestrator.problems.auth_miss_mongodb import *
-# from aiopslab.orchestrator.problems.cart_service_failure import *
-# from aiopslab.orchestrator.problems.container_kill import *
-# from aiopslab.orchestrator.problems.disk_woreout import *
-# from aiopslab.orchestrator.problems.image_slow_load import *
 from aiopslab.orchestrator.problems.ad_service_failure import AdServiceFailure
 from aiopslab.orchestrator.problems.ad_service_high_cpu import AdServiceHighCpu
 from aiopslab.orchestrator.problems.ad_service_manual_gc import AdServiceManualGc
@@ -48,47 +37,18 @@ from aiopslab.orchestrator.problems.scale_pod import ScalePodSocialNet
 from aiopslab.orchestrator.problems.storage_user_unregistered import (
     MongoDBUserUnregistered,
 )
-
-# from aiopslab.orchestrator.problems.kafka_queue_problems import *
-# from aiopslab.orchestrator.problems.kernel_fault import *
-# from aiopslab.orchestrator.problems.loadgenerator_flood_homepage import *
-# from aiopslab.orchestrator.problems.misconfig_app import *
-# from aiopslab.orchestrator.problems.network_delay import *
-# from aiopslab.orchestrator.problems.network_loss import *
-# from aiopslab.orchestrator.problems.no_op import *
-# from aiopslab.orchestrator.problems.operator_misoperation import *
-# from aiopslab.orchestrator.problems.payment_service_failure import *
-# from aiopslab.orchestrator.problems.payment_service_unreachable import *
-# from aiopslab.orchestrator.problems.pod_failure import *
-# from aiopslab.orchestrator.problems.pod_kill import *
-# from aiopslab.orchestrator.problems.product_catalog_failure import *
-# from aiopslab.orchestrator.problems.recommendation_service_cache_failure import *
-# from aiopslab.orchestrator.problems.redeploy_without_pv import *
-# from aiopslab.orchestrator.problems.revoke_auth import *
-# from aiopslab.orchestrator.problems.scale_pod import *
-# from aiopslab.orchestrator.problems.storage_user_unregistered import *
-# from aiopslab.orchestrator.problems.wrong_bin_usage import *
+from aiopslab.orchestrator.problems.wrong_bin_usage import WrongBinUsage
 
 
 class ProblemRegistry:
     def __init__(self):
         self.PROBLEM_REGISTRY = {
-            "k8s_target_port-misconfig": lambda: K8STargetPortMisconfig(
-                faulty_service="user-service"
-            ),
+            "k8s_target_port-misconfig": lambda: K8STargetPortMisconfig(faulty_service="user-service"),
             "auth_miss_mongodb": MongoDBAuthMissing,
-            "revoke_auth_mongodb-1": lambda: MongoDBRevokeAuth(
-                faulty_service="mongodb-geo"
-            ),
-            "revoke_auth_mongodb-2": lambda: MongoDBRevokeAuth(
-                faulty_service="mongodb-rate"
-            ),
-            "storage_user_unregistered-1": lambda: MongoDBUserUnregistered(
-                faulty_service="mongodb-geo"
-            ),
-            "storage_user_unregistered-2": lambda: MongoDBUserUnregistered(
-                faulty_service="mongodb-rate"
-            ),
+            "revoke_auth_mongodb-1": lambda: MongoDBRevokeAuth(faulty_service="mongodb-geo"),
+            "revoke_auth_mongodb-2": lambda: MongoDBRevokeAuth(faulty_service="mongodb-rate"),
+            "storage_user_unregistered-1": lambda: MongoDBUserUnregistered(faulty_service="mongodb-geo"),
+            "storage_user_unregistered-2": lambda: MongoDBUserUnregistered(faulty_service="mongodb-rate"),
             "misconfig_app_hotel_res": MisconfigAppHotelRes,
             "scale_pod_zero_social_net": ScalePodSocialNet,
             "assign_to_non_existent_node": AssignNonExistentNode,
@@ -112,25 +72,19 @@ class ProblemRegistry:
             "astronomy_shop_product_catalog_service_failure": ProductCatalogServiceFailure,
             "astronomy_shop_recommendation_service_cache_failure": RecommendationServiceCacheFailure,
             "redeploy_without_PV": RedeployWithoutPV,
-            # # Redeployment of namespace without deleting the PV
-            # "redeploy_without_PV-detection-1": RedeployWithoutPVDetection,
-            # # "redeploy_without_PV-localization-1": RedeployWithoutPVLocalization,
-            # "redeploy_without_PV-mitigation-1": RedeployWithoutPVMitigation,
-            # # Assign pod to non-existent node
-            # "wrong_bin_usage-detection-1": WrongBinUsageDetection,
-            # "wrong_bin_usage-localization-1": WrongBinUsageLocalization,
-            # "wrong_bin_usage-mitigation-1": WrongBinUsageMitigation,
-            # # K8S operator misoperation -> Refactor later, not sure if they're working
-            # # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
-            # # "operator_overload_replicas-localization-1": K8SOperatorOverloadReplicasLocalization,
-            # # "operator_non_existent_storage-detection-1": K8SOperatorNonExistentStorageDetection,
-            # # "operator_non_existent_storage-localization-1": K8SOperatorNonExistentStorageLocalization,
-            # # "operator_invalid_affinity_toleration-detection-1": K8SOperatorInvalidAffinityTolerationDetection,
-            # # "operator_invalid_affinity_toleration-localization-1": K8SOperatorInvalidAffinityTolerationLocalization,
-            # # "operator_security_context_fault-detection-1": K8SOperatorSecurityContextFaultDetection,
-            # # "operator_security_context_fault-localization-1": K8SOperatorSecurityContextFaultLocalization,
-            # # "operator_wrong_update_strategy-detection-1": K8SOperatorWrongUpdateStrategyDetection,
-            # # "operator_wrong_update_strategy-localization-1": K8SOperatorWrongUpdateStrategyLocalization,
+            "wrong_bin_usage": WrongBinUsage,
+            # K8S operator misoperation -> Refactor later, not sure if they're working
+            # They will also need to be updated to the new problem format.
+            # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
+            # "operator_overload_replicas-localization-1": K8SOperatorOverloadReplicasLocalization,
+            # "operator_non_existent_storage-detection-1": K8SOperatorNonExistentStorageDetection,
+            # "operator_non_existent_storage-localization-1": K8SOperatorNonExistentStorageLocalization,
+            # "operator_invalid_affinity_toleration-detection-1": K8SOperatorInvalidAffinityTolerationDetection,
+            # "operator_invalid_affinity_toleration-localization-1": K8SOperatorInvalidAffinityTolerationLocalization,
+            # "operator_security_context_fault-detection-1": K8SOperatorSecurityContextFaultDetection,
+            # "operator_security_context_fault-localization-1": K8SOperatorSecurityContextFaultLocalization,
+            # "operator_wrong_update_strategy-detection-1": K8SOperatorWrongUpdateStrategyDetection,
+            # "operator_wrong_update_strategy-localization-1": K8SOperatorWrongUpdateStrategyLocalization,
         }
 
     def get_problem_instance(self, problem_id: str):
