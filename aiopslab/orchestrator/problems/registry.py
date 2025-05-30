@@ -13,6 +13,7 @@ from aiopslab.orchestrator.problems.auth_miss_mongodb import MongoDBAuthMissing
 from aiopslab.orchestrator.problems.k8s_target_port_misconfig import (
     K8STargetPortMisconfig,
 )
+from aiopslab.orchestrator.problems.misconfig_app import MisconfigAppHotelRes
 from aiopslab.orchestrator.problems.revoke_auth import MongoDBRevokeAuth
 from aiopslab.orchestrator.problems.storage_user_unregistered import (
     MongoDBUserUnregistered,
@@ -58,6 +59,7 @@ class ProblemRegistry:
             "storage_user_unregistered-2": lambda: MongoDBUserUnregistered(
                 faulty_service="mongodb-rate"
             ),
+            "misconfig_app_hotel_res": MisconfigAppHotelRes,
             # # App misconfig
             # "misconfig_app_hotel_res-detection-1": MisconfigAppHotelResDetection,
             # "misconfig_app_hotel_res-localization-1": MisconfigAppHotelResLocalization,
