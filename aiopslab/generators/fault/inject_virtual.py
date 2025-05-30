@@ -198,7 +198,7 @@ class VirtualizationFaultInjector(FaultInjector):
         app = type(app)()
         app.deploy_without_wait()
 
-    def recover_redepoly_without_pv(self, app: Application):
+    def recover_redeploy_without_pv(self, app: Application):
         app.cleanup()
         # pass
 
