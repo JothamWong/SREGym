@@ -7,6 +7,7 @@ from typing import Dict, Optional
 import litellm
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
 logging.basicConfig(
@@ -99,7 +100,7 @@ class LiteLLMBackend:
 
         if tools:
             logger.info(f"binding tools to llm: {tools}")
-            llm.bind_tools(tools, tool_choice="auto")
+            llm = llm.bind_tools(tools, tool_choice="auto")
 
         # FIXME: when using openai models, finish_reason would be the function name
         #   if the model decides to do function calling
