@@ -14,12 +14,6 @@
 </div>
 
 
-
-<h2 id="🤖overview">🤖 Overview</h2>
-
-![alt text](./assets/images/srearena-arch-open-source.png)
-
-
 SREArena is a holistic framework to enable the design, development, and evaluation of autonomous AIOps agents that, additionally, serve the purpose of building reproducible, standardized, interoperable and scalable benchmarks. SREArena can deploy microservice cloud environments, inject faults, generate workloads, and export telemetry data, while orchestrating these components and providing interfaces for interacting with and evaluating agents. 
 
 Moreover, SREArena provides a built-in benchmark suite with a set of problems to evaluate AIOps agents in an interactive environment. This suite can be easily extended to meet user-specific needs. See the problem list [here](/srearena/conductor/problems/registry.py#L15).
