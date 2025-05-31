@@ -9,12 +9,14 @@ import geni.util
 from geni.aggregate.cloudlab import Clemson, Utah, Wisconsin
 
 context = geni.util.loadContext()
-aggregate = Wisconsin  # c220g5 nodes are only available at Wisconsin
 
 # Randomly generate a slice name as they need to be unique
 SLICE_NAME = "test-" + str(random.randint(100000, 999999))
-DURATION = 1
+DURATION = 1  # (hours)
 DESCRIPTION = "Testing experiment creation"
+HARDWARE_TYPE = "c220g5"
+AGGREGATE = Wisconsin  # c220g5 nodes are only available at Wisconsin
+OS_TYPE = "UBUNTU22-64-STD"
 
 # Create a cluster of 3 c220g5 nodes
 request = portal.context.makeRequestRSpec()
@@ -24,13 +26,13 @@ node2 = request.RawPC("compute1")
 node3 = request.RawPC("compute2")
 
 # Free to pick different hardware types but make sure to check if the chosen hardware type is available at the chosen aggregate
-node1.hardware_type = "c220g5"
-node2.hardware_type = "c220g5"
-node3.hardware_type = "c220g5"
+node1.hardware_type = HARDWARE_TYPE
+node2.hardware_type = HARDWARE_TYPE
+node3.hardware_type = HARDWARE_TYPE
 
-node1.disk_image = "urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU22-64-STD"
-node2.disk_image = "urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU22-64-STD"
-node3.disk_image = "urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU22-64-STD"
+node1.disk_image = f"urn:publicid:IDN+emulab.net+image+emulab-ops//{OS_TYPE}"
+node2.disk_image = f"urn:publicid:IDN+emulab.net+image+emulab-ops//{OS_TYPE}"
+node3.disk_image = f"urn:publicid:IDN+emulab.net+image+emulab-ops//{OS_TYPE}"
 
 link1 = request.Link(members=[node1, node2, node3])
 

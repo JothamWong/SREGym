@@ -36,7 +36,7 @@ The `geni-lib` library is a Python library for interacting with the GENI (Global
 
 The modified library can be found in the `scripts/geni-lib/mod/geni-lib-xlab` directory. It will be automatically installed when you run `uv sync` to install the dependencies.
 
-# Building a context definition for CloudLab
+## Building a context definition for CloudLab
 
 To build a context definition, you'll need:
 - Your CloudLab certificate (`cloudlab.pem`)
@@ -46,7 +46,7 @@ To build a context definition, you'll need:
 
 Use the following command format:
 ```bash
-build-context --type cloudlab --cert <path_to_cert> --pubkey <path_to_pubkey> --project <project_name>
+build-context --type cloudlab --cert <path_to_cert> --key <path_to_key> --pubkey <path_to_pubkey> --project <project_name>
 ```
 
 Example:
@@ -171,7 +171,7 @@ python3 genictl.py -i
    ```
 
 10. **quick-experiment**
-   - Creates a quick 3 node experiment with the desired hardware type. The aggregate will be chosen based on where the hardware type is available.
+   - Creates a quick experiment with the desired hardware type, number of nodes, OS type and duration. The aggregate will be chosen based on where the hardware type is available.
    ```bash
    > quick-experiment
    Enter hardware type: c220g5
