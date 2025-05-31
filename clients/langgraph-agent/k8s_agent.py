@@ -15,9 +15,7 @@ from llm_backend.init_backend import get_llm_backend_for_tools
 from tools.jaeger_tools import *
 from typing_extensions import TypedDict
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -26,21 +24,6 @@ class State(TypedDict):
     # in the annotation defines how this state key should be updated
     # (in this case, it appends messages to the list, rather than overwriting them)
     messages: Annotated[list, add_messages]
-
-
-llm = get_llm_backend_for_tools()
-get_traces = GetTraces()
-get_services = GetServices()
-get_operations = GetOperations()
-tools = [
-    get_traces,
-    get_services,
-    get_operations,
-]
-
-
-def agent(state: State):
-    return {"messages": [llm.inference(messages=state["messages"], tools=tools)]}
 
 
 def route_tools(state: State):
@@ -62,10 +45,6 @@ def route_tools(state: State):
     return END
 
 
-graph_builder = StateGraph(State)
-graph_builder.add_node("agent", agent)
-
-
 class BasicToolNode:
     """A node that runs the tools requested in the last AIMessage."""
 
@@ -81,9 +60,7 @@ class BasicToolNode:
         outputs = []
         for tool_call in message.tool_calls:
             logger.info(f"invoking tool: {tool_call["name"]}, tool_call: {tool_call}")
-            tool_result = asyncio.run(
-                self.tools_by_name[tool_call["name"]].ainvoke(tool_call["args"])
-            )
+            tool_result = asyncio.run(self.tools_by_name[tool_call["name"]].ainvoke(tool_call["args"]))
             logger.info(f"tool_result: {tool_result}")
             outputs.append(
                 ToolMessage(
@@ -95,11 +72,54 @@ class BasicToolNode:
         return {"messages": outputs}
 
 
+llm = get_llm_backend_for_tools()
+get_traces = GetTraces()
+get_services = GetServices()
+get_operations = GetOperations()
+tools = [
+    get_traces,
+    get_services,
+    get_operations,
+]
+
+
+# agents are modelled as graphs in langgraph, where each node in the graph
+# represents a unit of work in the agent workflow.
+# e.g., querying traces, running kubectl get pods, etc.
+# it's completely up to us what we implement in each node,
+# we don't have to query the llm at each step.
+graph_builder = StateGraph(State)
+
+
+# this is the agent node. it simply queries the llm and return the results
+def agent(state: State):
+    return {"messages": [llm.inference(messages=state["messages"], tools=tools)]}
+
+
+# we add the node to the graph
+graph_builder.add_node("agent", agent)
+
+# we also have a tool node. this tool node connects to a jaeger MCP server
+# and allows you to query any jaeger information
 observability_tool_node = BasicToolNode(tools)
+
+# we add the node to the graph
 graph_builder.add_node("observability_tool_node", observability_tool_node)
+
+# after creating the nodes, we now add the edges
+# the start of the graph is denoted by the keyword START, end is END.
+# here, we point START to the "agent" node
 graph_builder.add_edge(START, "agent")
-# agent -> ob tool -> agent (loop)
-# agent -> end
+
+# once we arrive at the "agent" node, the execution graph can
+# have 2 paths: either choosing to use a tool or not.
+# e.g.,
+# agent -> ob tool -> agent -> ob tool (tool loop)
+# agent -> agent -> agent -> end (normal chatbot loop)
+# this is accomplished by "conditional edges" in the graph
+# we implement "route_tools," which routes the execution based on the agent's
+# output. if the output is a tool usage, we direct the execution to the tool and loop back to the agent node
+# if not, we finish *one* graph traversal (i.e., to END)
 graph_builder.add_conditional_edges(
     "agent",
     route_tools,
@@ -111,11 +131,17 @@ graph_builder.add_conditional_edges(
     {"observability_tool_node": "observability_tool_node", END: END},
 )
 graph_builder.add_edge("observability_tool_node", "agent")
+
+# interestingly, for short-term memory (i.e., agent trajectories or conversation history), we need
+# to explicitly implement it.
+# here, it is implemented as a in-memory checkpointer.
 memory = MemorySaver()
 graph = graph_builder.compile(checkpointer=memory)
 config = {"configurable": {"thread_id": "1"}}
 
 
+# this method streams one user input through the graph
+# this is how steps are implemented in langgraph.
 def stream_graph_updates(user_input: str):
     for event in graph.stream(
         {"messages": [{"role": "user", "content": user_input}]},
@@ -131,6 +157,7 @@ def stream_graph_updates(user_input: str):
                 logger.info(f"Error: {e}")
 
 
+# a short chatbot loop to demonstrate the workflow.
 while True:
     try:
         user_input = input("User: ")
