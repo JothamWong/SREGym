@@ -1,7 +1,8 @@
 [project]
-name = "aiopslab"
+name = "srearena"
 requires-python = ">= 3.12"
 version = "0.0.1"
+
 dependencies = [
     "aiohappyeyeballs==2.6.1",
     "aiohttp==3.12.1",
@@ -210,9 +211,17 @@ dependencies = [
     "zipp==3.22.0",
 ]
 
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
 [build-system]
 requires = ["setuptools>=80.8.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["aiopslab", "clients"]
+packages = ["srearena", "clients"]
