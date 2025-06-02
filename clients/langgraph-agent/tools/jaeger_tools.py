@@ -54,9 +54,9 @@ class GetTraces(BaseTool):
         server_name = "observability"
         if USE_HTTP:
             logger.info("Using HTTP, connecting to server.")
-            server_url = "http://127.0.0.1:9953"
+            server_url = "http://127.0.0.1:9953/sse"
             http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
-            session = await exit_stack.enter_async_context(ClientSession(http_transport))
+            session = await exit_stack.enter_async_context(ClientSession(*http_transport))
         else:
             logger.info("Not using HTTP, booting server locally, not recommended.")
             curr_dir = os.getcwd()
@@ -112,9 +112,9 @@ class GetServices(BaseTool):
         server_name = "observability"
         if USE_HTTP:
             logger.info("Using HTTP, connecting to server.")
-            server_url = "http://127.0.0.1:9953"
+            server_url = "http://127.0.0.1:9953/sse"
             http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
-            session = await exit_stack.enter_async_context(ClientSession(http_transport))
+            session = await exit_stack.enter_async_context(ClientSession(*http_transport))
         else:
             logger.info("Not using HTTP, booting server locally, not recommended.")
             curr_dir = os.getcwd()
@@ -169,9 +169,9 @@ class GetOperations(BaseTool):
         server_name = "observability"
         if USE_HTTP:
             logger.info("Using HTTP, connecting to server.")
-            server_url = "http://127.0.0.1:9953"
+            server_url = "http://127.0.0.1:9953/sse"
             http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
-            session = await exit_stack.enter_async_context(ClientSession(http_transport))
+            session = await exit_stack.enter_async_context(ClientSession(*http_transport))
         else:
             logger.info("Not using HTTP, booting server locally, not recommended.")
             curr_dir = os.getcwd()
