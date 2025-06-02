@@ -35,6 +35,7 @@ def route_tools(state: State):
     if isinstance(state, list):
         ai_message = state[-1]
     elif messages := state.get("messages", []):
+        logger.info(f"route_tools: messages length: {len(messages)}")
         ai_message = messages[-1]
     else:
         raise ValueError(f"No messages found in input state to tool_edge: {state}")
@@ -154,7 +155,7 @@ def stream_graph_updates(user_input: str):
             try:
                 logger.info("Assistant: %s", value["messages"][-1].content)
             except TypeError as e:
-                logger.info(f"Error: {e}")
+                logger.info(f"Please ignore, Error: {e}")
 
 
 # a short chatbot loop to demonstrate the workflow.
@@ -165,6 +166,7 @@ while True:
             print("Goodbye!")
             break
         stream_graph_updates(user_input)
-    except:
+    except Exception as e:
+        print(f"Error: {e}")
         # fallback if input() is not available
         break
