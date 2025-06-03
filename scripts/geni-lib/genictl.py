@@ -27,7 +27,7 @@ import geni.util
 from geni.aggregate.cloudlab import Clemson, Utah, Wisconsin
 
 # Kubernetes bootstrapper
-from aiopslab.cluster_setup import setup_cloudlab_cluster
+from cluster_setup import setup_cloudlab_cluster
 
 
 # ╭──────────────────────────────────────────────────────────────────────────╮

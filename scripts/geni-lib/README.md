@@ -93,6 +93,12 @@ cd scripts/geni-lib
 python3 genictl.py -i
 ```
 
+Or run the experiment, and provision a k8s cluster in a single-shot command:
+
+```bash
+python3 genictl.py quick-experiment --site wisconsin --hardware-type c220g5 --nodes 3 --duration 1 --ssh-user <your-user> --ssh-key ~/.ssh/id_ed25519 --k8s
+```
+
 ### Available Commands
 
 1. **create-slice**
