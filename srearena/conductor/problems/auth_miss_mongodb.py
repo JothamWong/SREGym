@@ -19,7 +19,7 @@ class MongoDBAuthMissing(Problem):
         self.kubectl = KubeCtl()
         self.namespace = self.app.namespace
         self.faulty_service = "url-shorten-mongodb"
-        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
+        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/mixed-workload.lua"
 
         # === Attach evaluation oracles ===
         self.detection_oracle = DetectionOracle(problem=self, expected="Yes")
@@ -32,7 +32,7 @@ class MongoDBAuthMissing(Problem):
         print("== Start Workload ==")
         frontend_url = get_frontend_url(self.app)
 
-        wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
+        wrk = Wrk(rate=10, dist="exp", connections=2, duration=1000, threads=2)
         wrk.start_workload(
             payload_script=self.payload_script,
             url=f"{frontend_url}/wrk2-api/post/compose",

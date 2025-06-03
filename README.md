@@ -267,7 +267,7 @@ See a full example of a problem [here](/srearena/conductor/problems/k8s_target_p
     ```python
     from srearena.generator.workload.wrk import Wrk
 
-    wrk = Wrk(rate=100, duration=10)
+    wrk = Wrk(rate=100, duration=1000)
     wrk.start_workload(payload="<wrk payload script>", url="<app URL>")
     ```
     > Relevant Code: [srearena/generators/workload/wrk.py](/srearena/generators/workload/wrk.py)

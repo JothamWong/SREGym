@@ -32,7 +32,7 @@ class ChaosMeshPodKill(Problem):
         print("== Start Workload ==")
         frontend_url = get_frontend_url(self.app)
 
-        wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
+        wrk = Wrk(rate=10, dist="exp", connections=2, duration=1000, threads=2)
         wrk.start_workload(
             payload_script=self.payload_script,
             url=f"{frontend_url}",
