@@ -18,7 +18,9 @@ class HotelReservation(Application):
         self.create_namespace()
         self.create_configmaps()
 
-        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
+        self.payload_script = (
+            TARGET_MICROSERVICES / "hotelReservation/wrk2/scripts/hotel-reservation/mixed-workload_type_1.lua"
+        )
 
     def load_app_json(self):
         super().load_app_json()
