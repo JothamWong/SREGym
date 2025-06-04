@@ -91,3 +91,16 @@ class ProblemRegistry:
         if task_type:
             return len([k for k in self.PROBLEM_REGISTRY.keys() if task_type in k])
         return len(self.PROBLEM_REGISTRY)
+
+    def get_matching_noop_id(self, problem_id: str) -> str | None:
+        app_name = self.problem.app.__class__.__name__.lower()
+
+        if "hotel" in app_name:
+            return "noop_hotel_reservation"
+        elif "social" in app_name:
+            return "noop_social_network"
+        elif "astronomy" in app_name or "shop" in app_name:
+            return "noop_astronomy_shop"
+        else:
+            print(f"[WARN] No matching noop problem found for app: {app_name}")
+            return None

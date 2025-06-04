@@ -34,19 +34,6 @@ class Conductor:
         self.agent = agent
         self.agent_name = name
 
-    def get_matching_noop_id(self, problem_id: str) -> str | None:
-        app_name = self.problem.app.__class__.__name__.lower()
-
-        if "hotel" in app_name:
-            return "noop_hotel_reservation"
-        elif "social" in app_name:
-            return "noop_social_network"
-        elif "astronomy" in app_name or "shop" in app_name:
-            return "noop_astronomy_shop"
-        else:
-            print(f"[WARN] No matching noop problem found for app: {app_name}")
-            return None
-
     async def run_problem(self):
         try:
             instr = "Please take the next action"
@@ -196,7 +183,7 @@ class Conductor:
         faulty_results = await self.run_problem()
 
         # === NOOP problem run ===
-        noop_id = self.get_matching_noop_id(self.problem_id)
+        noop_id = ProblemRegistry.get_matching_noop_id(self.problem_id)
         if noop_id is not None:
             print(f"\n[INFO] Running NOOP problem: {noop_id}")
             self.init_problem(noop_id, is_noop=True)
