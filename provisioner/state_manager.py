@@ -7,10 +7,11 @@ from provisioner.utils.logger import logger
 
 
 class CLUSTER_STATUS:
-    STATUS_PROVISIONING = "provisioning"
+    STATUS_AUTO_PROVISIONING = "auto_provisioning"
+    STATUS_USER_PROVISIONING = "user_provisioning"
     STATUS_UNCLAIMED_READY = "unclaimed_ready"
     STATUS_CLAIMED = "claimed"
-    STATUS_PENDING_CLEANUP = "pending_cleanup"
+    # STATUS_PENDING_CLEANUP = "pending_cleanup"
     STATUS_TERMINATING = "terminating"
     STATUS_ERROR = "error"
     STATUS_TERMINATED = "terminated"
@@ -57,7 +58,7 @@ class StateManager:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         slice_name TEXT UNIQUE NOT NULL,
                         aggregate_name TEXT,
-                        status TEXT NOT NULL DEFAULT 'provisioning',
+                        status TEXT NOT NULL DEFAULT 'auto_provisioning',
                         hardware_type TEXT,
                         os_type TEXT,
                         node_count INTEGER,
@@ -90,13 +91,13 @@ class StateManager:
                 conn.execute("INSERT INTO users (user_id, ssh_public_key) VALUES (?, ?)", (user_id, ssh_public_key))
                 conn.commit()
                 logger.info(f"User {user_id} registered.")
-
+                return True
         except sqlite3.IntegrityError:
             logger.warning(f"User {user_id} already exists.")
-            raise sqlite3.IntegrityError(f"User {user_id} already exists.")
+            return False
         except sqlite3.Error as e:
             logger.error(f"Error adding user {user_id}: {e}", exc_info=True)
-            raise e
+            return False
 
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         try:
@@ -115,19 +116,19 @@ class StateManager:
     def create_cluster_record(
         self,
         slice_name: str,
-        aggregate_name: str,
-        hardware_type: str,
+        aggregate_name: str,        
         os_type: str,
         node_count: int,
+        hardware_type: Optional[str] = None,
         login_info: Optional[List[List[Any]]] = None,
-        status: str = CLUSTER_STATUS.STATUS_PROVISIONING,
+        status: str = CLUSTER_STATUS.STATUS_AUTO_PROVISIONING,
         cloudlab_expires_at: Optional[datetime.datetime] = None,
         claimed_by_user_id: Optional[str] = None,
         evaluation_override: bool = False,
         last_extended_at: Optional[datetime.datetime] = None,
     ) -> Optional[str]:
         """Creates a new cluster record. Returns slice_name on success."""
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now()
         login_info_json = json.dumps(login_info) if login_info else None
         try:
             with self._get_db_connection() as conn:
@@ -193,8 +194,8 @@ class StateManager:
 
         valid_keys = [
             # "slice_name",
-            # "aggregate_name",
-            # "hardware_type",
+            "aggregate_name",
+            "hardware_type",
             # "os_type",
             # "node_count",
             "status",
@@ -298,10 +299,11 @@ class StateManager:
         # These are clusters that are active or in a state that will soon become active/cleaned.
         # Excludes clusters that are definitely gone or in a permanent error state.
         managed_statuses = (
-            CLUSTER_STATUS.STATUS_PROVISIONING,
+            CLUSTER_STATUS.STATUS_AUTO_PROVISIONING,
+            CLUSTER_STATUS.STATUS_USER_PROVISIONING,
             CLUSTER_STATUS.STATUS_UNCLAIMED_READY,
             CLUSTER_STATUS.STATUS_CLAIMED,
-            CLUSTER_STATUS.STATUS_PENDING_CLEANUP,
+            # CLUSTER_STATUS.STATUS_PENDING_CLEANUP,
         )
 
         try:
@@ -318,14 +320,15 @@ class StateManager:
     def count_total_available_clusters(self) -> int:
         """Counts clusters that are available to be claimed."""
         available_statuses = (
+            CLUSTER_STATUS.STATUS_AUTO_PROVISIONING,
+            # CLUSTER_STATUS.STATUS_USER_PROVISIONING,
             CLUSTER_STATUS.STATUS_UNCLAIMED_READY,
-            CLUSTER_STATUS.STATUS_PROVISIONING,
-            CLUSTER_STATUS.STATUS_PENDING_CLEANUP,
+            #CLUSTER_STATUS.STATUS_PENDING_CLEANUP,
         )
 
         try:
             with self._get_db_connection() as conn:
-                cursor = conn.execute(f"SELECT COUNT(*) FROM clusters WHERE status IN (? , ? , ?)", available_statuses)
+                cursor = conn.execute(f"SELECT COUNT(*) FROM clusters WHERE status IN (? , ?)", available_statuses)
                 count = cursor.fetchone()[0]
                 return count if count is not None else 0
         except sqlite3.Error as e:

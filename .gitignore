@@ -370,3 +370,6 @@ scripts/ansible/inventory.yml
 
 # Ignore geni-lib context file
 context.json
+
+# Ignore sqlite3 database
+*.sqlite3

@@ -3,6 +3,7 @@ import os
 from typing import Tuple, Optional
 from provisioner.config.settings import DefaultSettings
 from provisioner.utils.logger import logger
+import time
 
 
 class SSHUtilError(Exception):
@@ -19,52 +20,57 @@ class SSHManager:
         private_key_path: Optional[str] = None,
         port: int = 22,
         timeout: int = DefaultSettings.DEFAULT_SSH_TIME_OUT_SECONDS,
+        max_retries: int = 3,
+        retry_delay: int = 2,  # seconds
     ):
         self.hostname = hostname
         self.username = username
         self.private_key_path = private_key_path
         self.port = port
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
     def _create_ssh_client(self) -> paramiko.SSHClient:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        try:
-            if self.private_key_path:
-                self.private_key_path = os.path.expanduser(self.private_key_path)
-                if not os.path.exists(self.private_key_path):
-                    raise SSHUtilError(f"Private key file not found: {self.private_key_path}")
-                try:
-                    # Try ED25519 first
-                    key = paramiko.Ed25519Key.from_private_key_file(self.private_key_path)
-                except paramiko.SSHException:
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                if self.private_key_path:
+                    self.private_key_path = os.path.expanduser(self.private_key_path)
+                    if not os.path.exists(self.private_key_path):
+                        raise SSHUtilError(f"Private key file not found: {self.private_key_path}")
                     try:
-                        # Fall back to RSA
-                        key = paramiko.RSAKey.from_private_key_file(self.private_key_path)
-                    except paramiko.SSHException as e:
-                        raise SSHUtilError(f"Failed to load private key: {e}")
-                logger.debug(
-                    f"Attempting SSH connection to {self.username}@{self.hostname}:{self.port} using private key {self.private_key_path}"
-                )
-                client.connect(self.hostname, port=self.port, username=self.username, pkey=key, timeout=self.timeout)
-
-            else:
-                raise SSHUtilError("SSH connection requires either a private key.")
-            logger.info(f"Successfully connected to {self.username}@{self.hostname}:{self.port}")
-            return client
-        except paramiko.AuthenticationException as e:
-            msg = f"Authentication failed for {self.username}@{self.hostname}: {e}"
-            logger.error(msg)
-            raise SSHUtilError(msg) from e
-        except paramiko.SSHException as e:
-            msg = f"SSH connection error for {self.username}@{self.hostname}: {e}"
-            logger.error(msg)
-            raise SSHUtilError(msg) from e
-        except Exception as e:
-            msg = f"An unexpected error occurred during SSH connection to {self.username}@{self.hostname}: {e}"
-            logger.error(msg, exc_info=True)
-            raise SSHUtilError(msg) from e
+                        # Try ED25519 first
+                        key = paramiko.Ed25519Key.from_private_key_file(self.private_key_path)
+                    except paramiko.SSHException:
+                        try:
+                            # Fall back to RSA
+                            key = paramiko.RSAKey.from_private_key_file(self.private_key_path)
+                        except paramiko.SSHException as e:
+                            raise SSHUtilError(f"Failed to load private key: {e}")
+                    logger.debug(
+                        f"Attempting SSH connection to {self.username}@{self.hostname}:{self.port} using private key {self.private_key_path} (attempt {attempt}/{self.max_retries})"
+                    )
+                    client.connect(self.hostname, port=self.port, username=self.username, pkey=key, timeout=self.timeout)
+                else:
+                    raise SSHUtilError("SSH connection requires either a private key.")
+                logger.info(f"Successfully connected to {self.username}@{self.hostname}:{self.port}")
+                return client
+            except (paramiko.AuthenticationException, paramiko.SSHException, Exception) as e:
+                if attempt < self.max_retries:
+                    logger.warning(f"SSH connection attempt {attempt} failed: {e}. Retrying in {self.retry_delay} seconds...")
+                    time.sleep(self.retry_delay)
+                else:
+                    msg = f"SSH connection failed after {self.max_retries} attempts for {self.username}@{self.hostname}: {e}"
+                    logger.error(msg, exc_info=True)
+                    if isinstance(e, paramiko.AuthenticationException):
+                        raise SSHUtilError(msg) from e
+                    elif isinstance(e, paramiko.SSHException):
+                        raise SSHUtilError(msg) from e
+                    else:
+                        raise SSHUtilError(msg) from e
 
     def execute_ssh_command(
         self,

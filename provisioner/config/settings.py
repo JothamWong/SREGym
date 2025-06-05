@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from geni.aggregate.cloudlab import Clemson, Utah, Wisconsin
+from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
@@ -10,28 +11,27 @@ load_dotenv(override=True)
 class DefaultSettings:
     DEFAULT_HARDWARE_TYPE = "c220g5"
     DEFAULT_OS_TYPE = "UBUNTU22-64-STD"
-    DEFAULT_NODE_COUNT = 1
-    DEFAULT_DURATION_HOURS = 1
+    DEFAULT_NODE_COUNT = 3 # 3
+    DEFAULT_DURATION_HOURS = .25 # 16
     DEFAULT_DESCRIPTION = "Cloudlab Experiment"
 
-    MIN_AVAILABLE_CLUSTERS = 1
-    MAX_TOTAL_CLUSTERS = 2
-    MAX_CLUSTERS_PER_USER = 2
-    UNCLAIMED_CLUSTER_TIMEOUT_HOURS = 1
-    CLAIMED_CLUSTER_DEFAULT_DURATION_HOURS = 7 * 24
-    CLAIMED_CLUSTER_INACTIVITY_TIMEOUT_HOURS = 48
+    MIN_AVAILABLE_CLUSTERS = 2 # 2
+    MAX_TOTAL_CLUSTERS = 2 # 8
+    MAX_CLUSTERS_PER_USER = 1 # 2
+    UNCLAIMED_CLUSTER_TIMEOUT_HOURS = .25 # 16
+    CLAIMED_CLUSTER_DEFAULT_DURATION_HOURS = .25 # 7 * 24
+    CLAIMED_CLUSTER_INACTIVITY_TIMEOUT_HOURS = 1
 
     DATABASE_PATH = "database.sqlite3"
 
-    DEFAULT_SSH_TIME_OUT_SECONDS = 300  # (seconds)
+    DEFAULT_SSH_TIME_OUT_SECONDS = 20  # 60
 
-    LOG_LEVEL = "INFO"
-    LOG_FILE = "provisioner.log"
+    LOG_PATH = "logs/"
 
     #### Provisioner Credentials ####
-    PROVISIONER_SSH_PRIVATE_KEY_PATH = "PATH_TO_PROVISIONER_SSH_PRIVATE_KEY"
-    PROVISIONER_DEFAULT_SSH_USERNAME = "USERNAME"
-    CLOUDLAB_CONTEXT_PATH = "PATH_TO_CLOUDLAB_CONTEXT_JSON"
+    PROVISIONER_DEFAULT_SSH_USERNAME = "srearena"
+    PROVISIONER_SSH_PRIVATE_KEY_PATH = os.getenv("PROVISIONER_SSH_PRIVATE_KEY_PATH",None)
+    CLOUDLAB_CONTEXT_PATH = os.getenv("CLOUDLAB_CONTEXT_PATH",None)
 
 
     #### Daemon Settings ####
@@ -73,5 +73,6 @@ OS_TYPES = [
 # The second error means experiment does not exist maybe already deleted and no need to retry
 DELETE_EXPERIMENT_ERRORS = [
     "resource is busy; try again later",  # -> retry
-    "No such slice here",  # -> no need to retry
+    "No such slice here",  # -> no need to retry,
+    "get_credentials encountered an error requesting the slice credential: No such Slice",  # -> no need to retry, already expired
 ]

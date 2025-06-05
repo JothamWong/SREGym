@@ -59,3 +59,7 @@ Required fields are:
 - `project`: Your CloudLab project name. Use lowercase to avoid Slice URN conflicts.
 
 Use absolute paths.
+
+username: pial
+email:
+ssh public key:

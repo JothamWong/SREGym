@@ -2,6 +2,7 @@ import datetime
 import json
 import random
 import warnings
+from typing import Optional
 import geni.util
 import geni.portal as portal
 from provisioner.utils.logger import logger
@@ -17,7 +18,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class CloudlabProvisioner:
-    def __init__(self, context_path: str):
+    def __init__(self, context_path: Optional[str] = None):
+        if context_path is None:
+            context_path = DefaultSettings.CLOUDLAB_CONTEXT_PATH
         self.context = geni.util.loadContext(path=context_path)
         self.project = self.context.cf.project
         self.framework = self.context.cf.name
@@ -142,6 +145,13 @@ class CloudlabProvisioner:
 
         logger.info(f"Slice Info: {slice_info}")
 
+        # Move the hardware type to the first position in the priority list if it is not already there
+        if hardware_type not in PRIORITY_HARDWARE_TYPES:
+            PRIORITY_HARDWARE_TYPES.insert(0, hardware_type)
+        else:
+            PRIORITY_HARDWARE_TYPES.remove(hardware_type)
+            PRIORITY_HARDWARE_TYPES.insert(0, hardware_type)
+
         for i, hardware_type in enumerate(PRIORITY_HARDWARE_TYPES):
             logger.info(f"Getting hardware available aggregate name for {hardware_type}")
             aggregate_name = self.get_hardware_available_aggregate_name(hardware_type, node_count)
@@ -199,7 +209,7 @@ class CloudlabProvisioner:
                 logger.error(f"Failed to renew slice {slice_name}")
                 return False
 
-            logger.info(f"Successfully renewed slice {slice_name} for {duration+1} hours")
+            logger.info(f"Successfully renewed slice {slice_name} for {duration} hours")
 
             # Renew the sliver
             sliver_renewal_success = self.renew_sliver(slice_name, aggregate_name, duration)
@@ -222,7 +232,7 @@ class CloudlabProvisioner:
             return True
         except Exception as e:
             logger.error(f"Error: {e}")
-            if DELETE_EXPERIMENT_ERRORS[1] in str(e):
+            if DELETE_EXPERIMENT_ERRORS[1] in str(e) or DELETE_EXPERIMENT_ERRORS[2] in str(e):
                 return True
             return False
 
@@ -248,7 +258,7 @@ class CloudlabProvisioner:
     def get_sliver_status(self, slice_name: str, aggregate_name: str):
         try:
             aggregate = self.get_aggregate(aggregate_name)
-            sliver_info = aggregate.getsliver(self.context, slice_name)
+            sliver_info = aggregate.listresources(self.context, slice_name)
             return sliver_info
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -257,7 +267,7 @@ class CloudlabProvisioner:
     def get_sliver_spec(self, slice_name: str, aggregate_name: str):
         try:
             aggregate = self.get_aggregate(aggregate_name)
-            sliver_spec = aggregate.listresources(self.context, slice_name)
+            sliver_spec = aggregate.sliverstatus(self.context, slice_name)
             return sliver_spec
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -295,3 +305,13 @@ class CloudlabProvisioner:
         except Exception as e:
             logger.error(f"Error: {e}")
             return None
+
+    def are_nodes_ready(self, slice_name: str, aggregate_name: str) -> bool:
+        try:
+            aggregate = self.get_aggregate(aggregate_name)
+            sliver_status = aggregate.sliverstatus(self.context, slice_name)
+            resources = sliver_status.get("geni_resources", [])
+            return all(resource.get("pg_status") == "ready" for resource in resources)
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return False

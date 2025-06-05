@@ -1,4 +1,3 @@
-import time
 import datetime
 import signal
 import threading
@@ -6,11 +5,11 @@ from typing import Optional
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from provisioner.config.settings import DefaultSettings, DELETE_EXPERIMENT_ERRORS
+from provisioner.config.settings import DefaultSettings
 from provisioner.utils.logger import logger
 from provisioner.state_manager import StateManager, CLUSTER_STATUS, SREARENA_STATUS
 from provisioner.provisioner import CloudlabProvisioner
-from provisioner.utils.ssh import SSHManager, SSHUtilError
+from provisioner.utils.ssh import SSHManager
 
 # Global stop event for graceful shutdown
 stop_event = threading.Event()
@@ -62,10 +61,10 @@ class ProvisionerDaemon:
                 self.state_manager.create_cluster_record(
                     slice_name=slice_name,
                     aggregate_name="<PENDING>",
-                    hardware_type=DefaultSettings.DEFAULT_HARDWARE_TYPE,
+                    # hardware_type=DefaultSettings.DEFAULT_HARDWARE_TYPE,
                     os_type=DefaultSettings.DEFAULT_OS_TYPE,
                     node_count=DefaultSettings.DEFAULT_NODE_COUNT,
-                    status=CLUSTER_STATUS.STATUS_PROVISIONING,
+                    status=CLUSTER_STATUS.STATUS_AUTO_PROVISIONING,
                 )
 
                 experiment_info = None
@@ -76,8 +75,7 @@ class ProvisionerDaemon:
                         hardware_type=DefaultSettings.DEFAULT_HARDWARE_TYPE,
                         os_type=DefaultSettings.DEFAULT_OS_TYPE,
                         node_count=DefaultSettings.DEFAULT_NODE_COUNT,
-                        # +1 to account for the buffer time. After default timeout, the cluster might not need to be deleted if deleing it will cause the available pool to be too low
-                        duration=DefaultSettings.UNCLAIMED_CLUSTER_TIMEOUT_HOURS + 1,
+                        duration=DefaultSettings.UNCLAIMED_CLUSTER_TIMEOUT_HOURS,
                     )
 
                     if experiment_info and experiment_info.get("login_info"):
@@ -91,6 +89,7 @@ class ProvisionerDaemon:
                         self.state_manager.update_cluster_record(
                             slice_name,
                             aggregate_name=experiment_info["aggregate_name"],
+                            hardware_type=experiment_info["hardware_type"],
                             control_node_hostname=hostname,
                             login_info=experiment_info["login_info"],
                             cloudlab_expires_at=expires_at,
@@ -101,11 +100,12 @@ class ProvisionerDaemon:
                         self._setup_sre_arena_and_finalize(slice_name, hostname)
 
                     else:
-                        logger.error(f"Failed to create experiment {slice_name} via Cloudlab.")
+                        err_msg = f"Failed to create experiment {slice_name} via Cloudlab."
+                        logger.error(err_msg)
                         self.state_manager.update_cluster_record(
                             slice_name,
                             status=CLUSTER_STATUS.STATUS_ERROR,
-                            last_error_message="Cloudlab provisioning failed",
+                            last_error_message=err_msg,
                         )
                 except Exception as e:
                     logger.error(f"Error during Cloudlab provisioning for {slice_name}: {e}", exc_info=True)
@@ -126,7 +126,7 @@ class ProvisionerDaemon:
         sre_arena_status = SREARENA_STATUS.SRE_ARENA_NOT_ATTEMPTED
 
         try:
-            print("Setting up SRE Arena...")
+            logger.info(f"Setting up SRE Arena for {slice_name} on {hostname}...")
             self.state_manager.update_cluster_record(
                 slice_name,
                 status=CLUSTER_STATUS.STATUS_UNCLAIMED_READY,
@@ -151,44 +151,19 @@ class ProvisionerDaemon:
             for cluster in unclaimed_clusters:
                 slice_name = cluster["slice_name"]
 
-                # Using last_extended_at to track the pool entry time
-                pool_entry_time = cluster["last_extended_at"]
+                created_at = cluster["created_at"]
 
-                if not isinstance(pool_entry_time, datetime.datetime):
-                    pool_entry_time = datetime.datetime.fromisoformat(str(pool_entry_time))
+                if not isinstance(created_at, datetime.datetime):
+                    created_at = datetime.datetime.fromisoformat(str(created_at))
 
-                if now - pool_entry_time > datetime.timedelta(hours=DefaultSettings.UNCLAIMED_CLUSTER_TIMEOUT_HOURS):
-                    logger.info(f"Unclaimed cluster {slice_name} timed out (pool entry time: {pool_entry_time}).")
-
-                    # Don't delete if pool is too low
-                    if self.state_manager.count_total_available_clusters() <= DefaultSettings.MIN_AVAILABLE_CLUSTERS:
-                        logger.info(f"Pool is low. Extending {slice_name} instead of deleting.")
-                        new_expiry_duration = DefaultSettings.UNCLAIMED_CLUSTER_TIMEOUT_HOURS
-
-                        try:
-                            if self.cloudlab.renew_experiment(
-                                slice_name, new_expiry_duration + 1, cluster["aggregate_name"]
-                            ):
-                                new_cloudlab_expires_at = now + datetime.timedelta(hours=new_expiry_duration)
-                                self.state_manager.update_cluster_record(
-                                    slice_name,
-                                    last_extended_at=now,
-                                    cloudlab_expires_at=new_cloudlab_expires_at,
-                                )
-                                logger.info(f"Extended {slice_name}. New 'pool_entry_time' for timeout: {now}")
-                            else:
-                                logger.error(f"Failed to extend {slice_name}. Marking for termination.")
-                                self.state_manager.update_cluster_record(
-                                    slice_name, status=CLUSTER_STATUS.STATUS_TERMINATING
-                                )
-                        except Exception as e:
-                            logger.error(f"Error extending {slice_name}: {e}. Marking for termination.", exc_info=True)
-                            self.state_manager.update_cluster_record(
-                                slice_name, status=CLUSTER_STATUS.STATUS_TERMINATING
-                            )
-                    else:
-                        logger.info(f"Deleting unclaimed cluster {slice_name}.")
-                        self.state_manager.update_cluster_record(slice_name, status=CLUSTER_STATUS.STATUS_TERMINATING)
+                if now - created_at > datetime.timedelta(hours=DefaultSettings.UNCLAIMED_CLUSTER_TIMEOUT_HOURS):
+                    logger.info(f"Unclaimed cluster {slice_name} (in pool since {created_at}) has timed out. Marking for termination.")
+                    # Always mark for termination. Auto-provisioning will handle replenishment.
+                    self.state_manager.update_cluster_record(
+                        slice_name, status=CLUSTER_STATUS.STATUS_TERMINATING
+                    )
+                else:
+                    logger.debug(f"Unclaimed cluster {slice_name} (in pool since {created_at}) is within timeout window.")
         except Exception as e:
             logger.error(f"Critical error in unclaimed cluster timeout check: {e}", exc_info=True)
 
@@ -219,7 +194,7 @@ class ProvisionerDaemon:
                             cluster["slice_name"], cloudlab_expires_at=new_cloudlab_expires_at, last_extended_at=now
                         )
                         logger.info(f"Successfully extended {cluster['slice_name']} to {new_cloudlab_expires_at}.")
-                        # TODO: Notify user of successful extension (optional)
+                        # TODO: Notify user of successful extension
                     else:
                         logger.error(
                             f"Failed to extend claimed cluster {cluster['slice_name']}. User should be notified."
@@ -257,36 +232,15 @@ class ProvisionerDaemon:
                     logger.info(f"Claimed cluster {slice_name} inactive since {last_ssh_time}. Relinquishing.")
                     self.state_manager.update_cluster_record(
                         slice_name,
-                        status=CLUSTER_STATUS.STATUS_PENDING_CLEANUP,
-                        claimed_by_user_id=None,  # Disassociate user
-                        user_ssh_key_installed=False,  # Mark key for removal during cleanup
+                        status=CLUSTER_STATUS.STATUS_TERMINATING,
+                        claimed_by_user_id=None,
+                        user_ssh_key_installed=False,
                     )
                     # TODO: Notify user of auto-relinquishment
                 else:
                     logger.debug(f"Cluster {slice_name} last activity at {last_ssh_time} is within inactivity window.")
         except Exception as e:
             logger.error(f"Critical error in claimed cluster inactivity check: {e}", exc_info=True)
-
-    # TODO: Implement this
-    def _reset_vm(self, slice_name: str, hostname: str):
-        logger.info(f"Resetting VM for {slice_name} on {hostname} (Placeholder)...")
-        return True
-
-    def process_pending_cleanup_clusters(self):
-        logger.info("Running: Process Pending Cleanup Clusters")
-        try:
-            cleanup_clusters = self.state_manager.get_clusters_by_status(CLUSTER_STATUS.STATUS_PENDING_CLEANUP)
-            for cluster in cleanup_clusters:
-                slice_name = cluster["slice_name"]
-                hostname = cluster["control_node_hostname"]
-
-                logger.info(f"Processing cleanup for {slice_name} on {hostname}.")
-
-                self._reset_vm(slice_name, hostname)
-                self._setup_sre_arena_and_finalize(slice_name, hostname)
-
-        except Exception as e:
-            logger.error(f"Critical error in processing pending cleanup clusters: {e}", exc_info=True)
 
     def process_terminating_clusters(self):
         logger.info("Running: Process Terminating Clusters")
@@ -309,14 +263,14 @@ class ProvisionerDaemon:
                         self.state_manager.delete_cluster_record(slice_name)
                         logger.info(f"Removed cluster record for {slice_name}.")
                     else:
-                        err_msg = f"Cloudlab API failed to delete {slice_name}. Will retry."
+                        err_msg = f"Cloudlab API failed to delete {slice_name}. Will retry on next check."
                         logger.error(err_msg)
                         self.state_manager.update_cluster_record(
                             slice_name, last_error_message=err_msg, status=CLUSTER_STATUS.STATUS_TERMINATING
                         )
                 except Exception as e:
                     err_msg = f"Error deleting {slice_name} from Cloudlab: {e}"
-                    logger.error(err_msg + ". Will retry.", exc_info=True)
+                    logger.error(err_msg + ". Will retry on next check.", exc_info=True)
                     self.state_manager.update_cluster_record(slice_name, last_error_message=err_msg, status=CLUSTER_STATUS.STATUS_TERMINATING)
 
         except Exception as e:
@@ -330,11 +284,10 @@ class ProvisionerDaemon:
 
         logger.info("======== Starting Periodic Checks Cycle ========")
         try:
-            self.check_automatic_provisioning()
             self.check_unclaimed_cluster_timeout()
-            self.check_claimed_cluster_extension()
             self.check_claimed_cluster_inactivity()
-            self.process_pending_cleanup_clusters()
+            self.check_automatic_provisioning()
+            self.check_claimed_cluster_extension()
             self.process_terminating_clusters()
         except Exception as e:
             logger.critical(f"Unhandled exception during periodic checks cycle: {e}", exc_info=True)
@@ -353,7 +306,7 @@ class ProvisionerDaemon:
         # Schedule jobs
         self.scheduler.add_job(
             self.run_all_checks,
-            trigger=IntervalTrigger(minutes=DefaultSettings.SCHEDULER_INTERVAL_MINUTES),
+            trigger=IntervalTrigger(seconds=DefaultSettings.DEFAULT_SSH_TIME_OUT_SECONDS),
             id="provisioner_main_checks_job",
             name="Run all provisioner checks",
             replace_existing=True,

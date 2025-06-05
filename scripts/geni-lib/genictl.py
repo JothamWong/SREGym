@@ -174,7 +174,7 @@ def get_hardware_info(context=None, args=None):
         print("No hardware information available")
 
 
-def quick_experiment_creation(context, args):
+def create_experiment(context, args):
     try:
         hardware_type = args.hardware_type
         duration = args.duration
@@ -283,6 +283,28 @@ def quick_experiment_creation(context, args):
         print(f"Error: {e}")
 
 
+def renew_experiment(context, args):
+    slice_name = args.slice_name
+    site = args.site
+    hours = args.hours
+    new_slice_expiration = datetime.datetime.now() + datetime.timedelta(hours=(hours+1))
+    new_sliver_expiration = datetime.datetime.now() + datetime.timedelta(hours=hours)
+    try:
+        print(f"Renewing slice: {slice_name}")
+        context.cf.renewSlice(context, slice_name, new_slice_expiration)
+        print(f"Slice '{slice_name}' renewed")
+
+        aggregate = get_aggregate(site)
+
+        print(f"Renewing sliver: {slice_name}")
+        aggregate.renewsliver(context, slice_name, new_sliver_expiration)
+        print(f"Sliver '{slice_name}' renewed")
+
+        print(f"Your experiment under slice: {slice_name} is successfully renewed for {hours} hours\n")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
 def main():
     commands = [
         "create-slice",
@@ -295,6 +317,7 @@ def main():
         "delete-sliver",
         "get-hardware-info",
         "quick-experiment",
+        "renew-experiment",
     ]
     sites = ["utah", "clemson", "wisconsin"]
 
@@ -416,6 +439,22 @@ def main():
         help="OS image (default: UBUNTU22-64-STD)",
     )
 
+    # Add renew experiment parser
+    renew_exp_parser = subparsers.add_parser(
+        "renew-experiment",
+        help="Renew both slice and sliver for an experiment",
+    )
+    renew_exp_parser.add_argument("slice_name", help="Name of the slice")
+    renew_exp_parser.add_argument(
+        "--site",
+        choices=["utah", "clemson", "wisconsin"],
+        required=True,
+        help="CloudLab site",
+    )
+    renew_exp_parser.add_argument(
+        "--hours", type=validate_hours, default=1, help="Hours to extend"
+    )
+
     # Add interactive mode flag
     parser.add_argument(
         "--interactive", "-i", action="store_true", help="Run in interactive mode"
@@ -441,7 +480,8 @@ def main():
             "sliver-spec": list_sliver_spec,
             "delete-sliver": delete_sliver,
             "get-hardware-info": get_hardware_info,
-            "quick-experiment": quick_experiment_creation,
+            "create-experiment": create_experiment,
+            "renew-experiment": renew_experiment,
         }
         commands_map[args.command](context, args)
 
@@ -501,6 +541,7 @@ def run_interactive_mode(parser, commands, sites):
                 "renew-sliver",
                 "sliver-spec",
                 "delete-sliver",
+                "renew-experiment",
             ]:
                 while True:
                     site = site_session.prompt(
@@ -522,6 +563,7 @@ def run_interactive_mode(parser, commands, sites):
                 "renew-sliver",
                 "sliver-spec",
                 "delete-sliver",
+                "renew-experiment",
             ]:
                 while True:
                     slice_name = input("Enter slice name: ").strip()
@@ -545,7 +587,7 @@ def run_interactive_mode(parser, commands, sites):
                 )
                 args_list.extend(["--hours", hours])
 
-            if input_parts[0] in ["renew-slice", "renew-sliver"]:
+            if input_parts[0] in ["renew-slice", "renew-sliver", "renew-experiment"]:
                 hours = (
                     input(
                         "Enter new expiration time (hours from now, default 1): "
@@ -603,7 +645,8 @@ def run_interactive_mode(parser, commands, sites):
                 "sliver-spec": list_sliver_spec,
                 "delete-sliver": delete_sliver,
                 "get-hardware-info": get_hardware_info,
-                "quick-experiment": quick_experiment_creation,
+                "create-experiment": create_experiment,
+                "renew-experiment": renew_experiment,
             }
             commands_map[args.command](context, args)
 
