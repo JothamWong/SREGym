@@ -101,6 +101,8 @@ class CloudlabProvisioner:
     ):
         os_url = f"urn:publicid:IDN+emulab.net+image+emulab-ops//{os_type}"
 
+        # geni/portal.py keeps state of previous rspec request so we need to reset it otherwise it will throw MultipleRSpecError
+        portal.context._request = None
         rspec = portal.context.makeRequestRSpec()
 
         nodes = []
