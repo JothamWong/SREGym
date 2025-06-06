@@ -28,7 +28,7 @@ class CloudlabProvisioner:
         self.key_path = self.context.cf.key
         self.user_name = self.context.uname
         self.user_urn = list(self.context._users)[0].urn
-        self.user_pubkeypath = self.context.cf._key
+        self.user_pubkeypath = list(self.context._users)[0]._keys[0]
 
     def get_aggregate(self, aggregate_name: str):
         return AGGREGATES_MAP[aggregate_name.lower()]
@@ -234,7 +234,11 @@ class CloudlabProvisioner:
             return True
         except Exception as e:
             logger.error(f"Error: {e}")
-            if DELETE_EXPERIMENT_ERRORS[1] in str(e) or DELETE_EXPERIMENT_ERRORS[2] in str(e):
+            if (
+                DELETE_EXPERIMENT_ERRORS[1] in str(e)
+                or DELETE_EXPERIMENT_ERRORS[2] in str(e)
+                or DELETE_EXPERIMENT_ERRORS[3] in str(e)
+            ):
                 return True
             return False
 
