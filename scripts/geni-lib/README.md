@@ -170,14 +170,21 @@ python3 genictl.py -i
    > get-hardware-info
    ```
 
-10. **quick-experiment**
+10. **create-experiment**
    - Creates a quick experiment with the desired hardware type, number of nodes, OS type and duration. The aggregate will be chosen based on where the hardware type is available.
    ```bash
-   > quick-experiment
+   > create-experiment
    Enter hardware type: c220g5
    Enter duration in hours (default 1): 2
    Enter number of nodes (default 3): 5
    Enter OS type (default UBUNTU22-64-STD): UBUNTU20-64-STD
+   ```
+11. **renew-experiment**
+   - Renews an experiment.
+   ```bash
+   > renew-experiment
+   Enter slice name: test-slice
+   Enter new expiration time (hours from now, default 1): 3
    ```
 
 ## Quick Test

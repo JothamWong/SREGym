@@ -183,7 +183,7 @@ def create_experiment(context, args):
         os_urn = f"urn:publicid:IDN+emulab.net+image+emulab-ops//{os_type}"
 
         print(
-            f"Creating a quick {node_count} node cluster of hardware type: {hardware_type}"
+            f"Creating a {node_count} node cluster of hardware type: {hardware_type}"
         )
 
         hardware_info_list = collect_and_parse_hardware_info()
@@ -316,7 +316,7 @@ def main():
         "sliver-spec",
         "delete-sliver",
         "get-hardware-info",
-        "quick-experiment",
+        "create-experiment",
         "renew-experiment",
     ]
     sites = ["utah", "clemson", "wisconsin"]
@@ -412,27 +412,27 @@ def main():
         "get-hardware-info", help="Get available hardware information from CloudLab"
     )
 
-    # quick experiment parser
-    quick_exp_parser = subparsers.add_parser(
-        "quick-experiment",
-        help="Create a quick 3-node experiment with specified hardware type",
+    # create experiment parser
+    create_exp_parser = subparsers.add_parser(
+        "create-experiment",
+        help="Create a  3-node experiment with specified hardware type",
     )
-    quick_exp_parser.add_argument(
+    create_exp_parser.add_argument(
         "--hardware-type", required=True, help="Hardware type for the nodes"
     )
 
-    quick_exp_parser.add_argument(
+    create_exp_parser.add_argument(
         "--duration", type=validate_hours, default=1, help="Duration in hours"
     )
 
-    quick_exp_parser.add_argument(
+    create_exp_parser.add_argument(
         "--node-count",
         type=int,
         default=3,
         help="Number of nodes to create (default: 3)",
     )
 
-    quick_exp_parser.add_argument(
+    create_exp_parser.add_argument(
         "--os-type",
         default="UBUNTU22-64-STD",
         choices=OS_TYPES,
@@ -603,7 +603,7 @@ def run_interactive_mode(parser, commands, sites):
                 )
                 args_list.extend(["--description", description])
 
-            if input_parts[0] == "quick-experiment":
+            if input_parts[0] == "create-experiment":
                 while True:
                     hardware_type = input("Enter hardware type: ").strip()
                     if hardware_type:
