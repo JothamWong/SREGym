@@ -17,6 +17,7 @@ from typing_extensions import TypedDict
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+from tools.basic_tool_node import BasicToolNode
 
 
 class State(TypedDict):
@@ -35,7 +36,6 @@ def route_tools(state: State):
     if isinstance(state, list):
         ai_message = state[-1]
     elif messages := state.get("messages", []):
-        logger.info(f"route_tools: messages length: {len(messages)}")
         ai_message = messages[-1]
     else:
         raise ValueError(f"No messages found in input state to tool_edge: {state}")
@@ -44,38 +44,6 @@ def route_tools(state: State):
         return "observability_tool_node"
     logger.info("invoking node: end")
     return END
-
-
-class BasicToolNode:
-    """A node that runs the tools requested in the last AIMessage."""
-
-    def __init__(self, node_tools: list[BaseTool]) -> None:
-        self.tools_by_name = {t.name: t for t in node_tools}
-
-    def __call__(self, inputs: dict):
-        if messages := inputs.get("messages", []):
-            message = messages[-1]
-        else:
-            raise ValueError("No message found in input")
-        logger.info(f"BasicToolNode: {message}")
-        outputs = []
-        for tool_call in message.tool_calls:
-            logger.info(f"invoking tool: {tool_call["name"]}, tool_call: {tool_call}")
-            tool_result = asyncio.run(self.tools_by_name[tool_call["name"]].ainvoke(tool_call["args"]))
-            logger.info(f"tool_result: {tool_result}")
-            tool_result_content = []
-            for text_content in tool_result.content:
-                tool_result_content.append(text_content.text)
-            # FIXME: Should we still json_dumps(tool_result)?
-            #   especially for json-formatted tool result like traces
-            outputs.append(
-                ToolMessage(
-                    content=tool_result,
-                    name=tool_call["name"],
-                    tool_call_id=tool_call["id"],
-                )
-            )
-        return {"messages": outputs}
 
 
 llm = get_llm_backend_for_tools()
@@ -107,7 +75,7 @@ graph_builder.add_node("agent", agent)
 
 # we also have a tool node. this tool node connects to a jaeger MCP server
 # and allows you to query any jaeger information
-observability_tool_node = BasicToolNode(tools)
+observability_tool_node = BasicToolNode(tools, is_async=True)
 
 # we add the node to the graph
 graph_builder.add_node("observability_tool_node", observability_tool_node)
