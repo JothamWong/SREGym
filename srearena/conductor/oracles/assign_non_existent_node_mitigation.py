@@ -2,6 +2,8 @@ from srearena.conductor.oracles.base import Oracle
 
 
 class AssignNonExistentNodeMitigationOracle(Oracle):
+    importance = 1.0
+
     def evaluate(self) -> dict:
         print("== Mitigation Evaluation ==")
 
@@ -44,7 +46,6 @@ class AssignNonExistentNodeMitigationOracle(Oracle):
                 if not all_normal:
                     break
 
-        results["Mitigation Success"] = all_normal
         results["success"] = all_normal
 
         print(f"Mitigation Result: {'Pass ✅' if all_normal else 'Fail ❌'}")
