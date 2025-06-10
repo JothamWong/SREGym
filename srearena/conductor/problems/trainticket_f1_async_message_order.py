@@ -7,9 +7,10 @@ async message order violation.
 
 import time
 import logging
-import subprocess
 from typing import Dict, Any
 
+from srearena.conductor.oracles.detection import DetectionOracle
+from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.service.apps.train_ticket import TrainTicket
 from srearena.generators.fault.inject_tt import TrainTicketFaultInjector
@@ -27,11 +28,16 @@ class TrainTicketF1AsyncMessageOrderProblem(Problem):
     async message sequence.
     """
 
-    def __init__(self, app: TrainTicket, namespace: str = "train-ticket"):
-        super().__init__(app, namespace)
-        self.fault_injector = TrainTicketFaultInjector(namespace)
+    def __init__(self):
+        app = TrainTicket()
+        super().__init__(app=app, namespace=app.namespace)
+        self.fault_injector = TrainTicketFaultInjector(app.namespace)
+        self.faulty_service = "ts-cancel-service"
         self.fault_name = "fault-1-async-message-order"
         
+        self.detection_oracle = DetectionOracle(problem=self, expected="Yes")
+        self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
+
         self.results = {
             "fault_injected": False,
             "fault_recovered": False,
@@ -90,31 +96,19 @@ class TrainTicketF1AsyncMessageOrderProblem(Problem):
             logger.error(f"Error recovering F1 fault: {e}")
             return False
 
-    def start_workload(self) -> bool:
+    def start_workload(self):
         """
-        Start workload to trigger F1 fault scenario.
+        Start workload for F1 fault scenario.
         
-        This method provides guidance for manual testing since TrainTicket
-        requires user interaction for order creation and cancellation.
-        
-        Returns:
-            bool: True if workload guidance provided
+        TrainTicket requires manual interaction for order creation and cancellation,
+        similar to how AstronomyShop has built-in load generation.
         """
-        try:
-            print(f"[TrainTicket F1] Starting F1 workload scenario...")
-            print(f"[TrainTicket F1] Manual testing required:")
-            print(f"[TrainTicket F1] 1. Access TrainTicket UI")
-            print(f"[TrainTicket F1] 2. Login with credentials: fdse_microservice/111111")
-            print(f"[TrainTicket F1] 3. Create a new order")
-            print(f"[TrainTicket F1] 4. Cancel the order")
-            print(f"[TrainTicket F1] 5. Observe 8-second delay if F1 fault is active")
-            print(f"[TrainTicket F1] 6. Check service logs for fault injection messages")
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error starting F1 workload: {e}")
-            return False
+        print("== Start Workload ==")
+        print("Workload guidance provided since TrainTicket requires manual interaction:")
+        print("1. Access TrainTicket UI at frontend service")
+        print("2. Login with credentials: fdse_microservice/111111")
+        print("3. Create and cancel orders to trigger F1 fault scenario")
+        print("4. Monitor logs for 8-second delay evidence")
 
     def check_fault_status(self) -> str:
         """
@@ -152,13 +146,10 @@ class TrainTicketF1AsyncMessageOrderProblem(Problem):
             
             for service in services:
                 try:
-                    result = subprocess.run([
-                        "kubectl", "logs", f"deployment/{service}",
-                        "-n", self.namespace, "--tail=50"
-                    ], capture_output=True, text=True)
+                    pod_name = kubectl.get_pod_name(self.namespace, f"app={service}")
+                    logs = kubectl.get_pod_logs(pod_name, self.namespace)
                     
-                    if result.returncode == 0:
-                        logs = result.stdout
+                    if logs:
                         analysis[f"{service.replace('-', '_')}_logs"] = logs.split('\n')
                         
                         if "F1 FAULT INJECTED" in logs:
@@ -186,31 +177,7 @@ class TrainTicketF1AsyncMessageOrderProblem(Problem):
         """
         return self.fault_injector.health_check()
 
-    def oracle(self) -> bool:
-        """
-        Oracle to detect if F1 fault is working correctly.
-        
-        Returns:
-            bool: True if F1 fault behavior is detected
-        """
-        try:
-            fault_status = self.check_fault_status()
-            log_analysis = self.analyze_logs()
-            
-            if fault_status == "on":
-                if log_analysis.get("fault_messages_found", False):
-                    print(f"[TrainTicket F1] Oracle: F1 fault is active and logging correctly")
-                    return True
-                else:
-                    print(f"[TrainTicket F1] Oracle: F1 fault is active but no logs found")
-                    return False
-            else:
-                print(f"[TrainTicket F1] Oracle: F1 fault is not active")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error in F1 oracle: {e}")
-            return False
+
 
     def get_results(self) -> Dict[str, Any]:
         """
@@ -230,8 +197,7 @@ class TrainTicketF1AsyncMessageOrderProblem(Problem):
 
 def main():
     """Example usage of TrainTicket F1 problem."""
-    app = TrainTicket()
-    problem = TrainTicketF1AsyncMessageOrderProblem(app)
+    problem = TrainTicketF1AsyncMessageOrderProblem()
     
     print("=== TrainTicket F1 Async Message Order Problem ===")
     
@@ -246,11 +212,6 @@ def main():
         
         time.sleep(2)
         
-        if problem.oracle():
-            print("F1 fault is working correctly")
-        else:
-            print("F1 fault may not be working as expected")
-            
         if problem.recover_fault():
             print("F1 fault recovered successfully")
         else:

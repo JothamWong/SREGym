@@ -4,7 +4,6 @@ Provides Python interface to inject and recover TrainTicket faults
 via flagd ConfigMap manipulation.
 """
 
-import subprocess
 import yaml
 import json
 import time
@@ -137,15 +136,14 @@ class TrainTicketFaultInjector(FaultInjector):
             str: "on", "off", or "unknown"
         """
         try:
-            result = subprocess.run([
-                "kubectl", "get", "configmap", self.configmap_name,
-                "-n", self.namespace, "-o", "yaml"
-            ], capture_output=True, text=True)
+            result = self.kubectl.exec_command(
+                f"kubectl get configmap {self.configmap_name} -n {self.namespace} -o yaml"
+            )
             
-            if result.returncode != 0:
+            if not result or "Error" in result:
                 return "unknown"
                 
-            configmap = yaml.safe_load(result.stdout)
+            configmap = yaml.safe_load(result)
             flags_yaml = configmap.get("data", {}).get("flags.yaml", "")
             
             if not flags_yaml:
@@ -182,16 +180,15 @@ class TrainTicketFaultInjector(FaultInjector):
             bool: True if update successful
         """
         try:
-            result = subprocess.run([
-                "kubectl", "get", "configmap", self.configmap_name,
-                "-n", self.namespace, "-o", "yaml"
-            ], capture_output=True, text=True)
+            result = self.kubectl.exec_command(
+                f"kubectl get configmap {self.configmap_name} -n {self.namespace} -o yaml"
+            )
             
-            if result.returncode != 0:
+            if not result or "Error" in result:
                 logger.error("Failed to get ConfigMap")
                 return False
                 
-            configmap = yaml.safe_load(result.stdout)
+            configmap = yaml.safe_load(result)
             flags_yaml = configmap.get("data", {}).get("flags.yaml", "")
             
             if not flags_yaml:
@@ -205,28 +202,13 @@ class TrainTicketFaultInjector(FaultInjector):
                 return False
                 
             flags_config["flags"][fault_name]["defaultVariant"] = state
-            
             updated_flags_yaml = yaml.dump(flags_config, default_flow_style=False)
-            configmap["data"]["flags.yaml"] = updated_flags_yaml
             
-            import tempfile
-            import os
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-                yaml.dump(configmap, f, default_flow_style=False)
-                temp_file = f.name
-                
-            result = subprocess.run([
-                "kubectl", "apply", "-f", temp_file
-            ], capture_output=True, text=True)
+            data = {"flags.yaml": updated_flags_yaml}
+            self.kubectl.create_or_update_configmap(self.configmap_name, self.namespace, data)
             
-            os.unlink(temp_file)
-            
-            if result.returncode == 0:
-                print(f"✅ Updated {fault_name} flag to '{state}'")
-                return True
-            else:
-                logger.error(f"kubectl apply failed: {result.stderr}")
-                return False
+            print(f"✅ Updated {fault_name} flag to '{state}'")
+            return True
                 
         except Exception as e:
             logger.error(f"Error updating fault flag: {e}")
@@ -242,26 +224,24 @@ class TrainTicketFaultInjector(FaultInjector):
         try:
             print("🔄 Restarting flagd deployment to reload configuration...")
             
-            result = subprocess.run([
-                "kubectl", "rollout", "restart", f"deployment/{self.flagd_deployment}",
-                "-n", self.namespace
-            ], capture_output=True, text=True)
+            result = self.kubectl.exec_command(
+                f"kubectl rollout restart deployment/{self.flagd_deployment} -n {self.namespace}"
+            )
             
-            if result.returncode != 0:
-                logger.error(f"Failed to restart flagd: {result.stderr}")
+            if "Error" in result:
+                logger.error(f"Failed to restart flagd: {result}")
                 return False
                 
-            result = subprocess.run([
-                "kubectl", "rollout", "status", f"deployment/{self.flagd_deployment}",
-                "-n", self.namespace, "--timeout=60s"
-            ], capture_output=True, text=True)
+            result = self.kubectl.exec_command(
+                f"kubectl rollout status deployment/{self.flagd_deployment} -n {self.namespace} --timeout=60s"
+            )
             
-            if result.returncode == 0:
+            if "successfully rolled out" in result:
                 print("✅ flagd deployment restarted successfully")
                 time.sleep(5)
                 return True
             else:
-                logger.error(f"Failed to wait for rollout: {result.stderr}")
+                logger.error(f"Failed to wait for rollout: {result}")
                 return False
                 
         except Exception as e:
@@ -283,26 +263,17 @@ class TrainTicketFaultInjector(FaultInjector):
         }
         
         try:
-            result = subprocess.run([
-                "kubectl", "get", "namespace", self.namespace
-            ], capture_output=True, text=True)
-            health["namespace_exists"] = result.returncode == 0
+            result = self.kubectl.exec_command(f"kubectl get namespace {self.namespace}")
+            health["namespace_exists"] = "Error" not in result
             
-            result = subprocess.run([
-                "kubectl", "get", "configmap", self.configmap_name, "-n", self.namespace
-            ], capture_output=True, text=True)
-            health["configmap_exists"] = result.returncode == 0
+            result = self.kubectl.exec_command(f"kubectl get configmap {self.configmap_name} -n {self.namespace}")
+            health["configmap_exists"] = "Error" not in result
             
-            result = subprocess.run([
-                "kubectl", "get", "deployment", self.flagd_deployment, "-n", self.namespace
-            ], capture_output=True, text=True)
-            health["flagd_running"] = result.returncode == 0
+            result = self.kubectl.exec_command(f"kubectl get deployment {self.flagd_deployment} -n {self.namespace}")
+            health["flagd_running"] = "Error" not in result
             
-            result = subprocess.run([
-                "kubectl", "get", "pods", "-l", "app=flagd", "-n", self.namespace,
-                "-o", "jsonpath={.items[0].status.phase}"
-            ], capture_output=True, text=True)
-            health["flagd_accessible"] = result.stdout.strip() == "Running"
+            result = self.kubectl.exec_command(f"kubectl get pods -l app=flagd -n {self.namespace} -o jsonpath={{.items[0].status.phase}}")
+            health["flagd_accessible"] = "Running" in result
             
         except Exception as e:
             logger.error(f"Health check error: {e}")
