@@ -18,18 +18,19 @@ class FileToolNode:
     def __init__(self, node_tools: list[BaseTool]) -> None:
         self.tools_by_name = {t.name: t for t in node_tools}
 
-    def __call__(self, inputs: Annotated[State, InjectedState]):
-        logger.info(f"FileToolNode: {inputs}")
+    def __call__(self, inputs: dict):
+        logger.info(f"FileToolNode getting states: {inputs}")
         if messages := inputs.get("messages", []):
             message = messages[-1]
         else:
             raise ValueError("No message found in input")
 
-        logger.info(f"FileToolNode: {message}")
+        logger.info(f"FileToolNode messages: {message}")
         outputs = []
         for tool_call in message.tool_calls:
+            tool_name = tool_call["name"]
             logger.info(f"invoking tool: {tool_call["name"]}, tool_call: {tool_call["args"]}")
-            tool_result = self.tools_by_name[tool_call["name"]].invoke(input, **tool_call["args"])
+            tool_result = self.tools_by_name[tool_name].invoke(tool_call["args"])
             logger.info(f"tool_result: {tool_result}")
             tool_result_content = []
             for text_content in tool_result.content:

@@ -12,7 +12,7 @@ from langgraph.prebuilt import ToolNode
 from llm_backend.init_backend import get_llm_backend_for_tools
 from tools.basic_tool_node import BasicToolNode, FileToolNode
 from tools.jaeger_tools import *
-from tools.text_editing.open import OpenFile
+from tools.text_editing.open import OpenFile, open_file
 
 from clients.langgraph_agent.state import State
 
@@ -33,7 +33,6 @@ class XAgent:
         get_traces = GetTraces()
         get_services = GetServices()
         get_operations = GetOperations()
-        open_file = OpenFile()
         self.observability_tools = [
             get_traces,
             get_services,
@@ -85,7 +84,7 @@ class XAgent:
         # and allows you to query any jaeger information
 
         observability_tool_node = BasicToolNode(self.observability_tools, is_async=True)
-        file_editing_tool_node = FileToolNode(self.text_editing_tools)
+        file_editing_tool_node = ToolNode(self.text_editing_tools)
 
         # we add the node to the graph
         self.graph_builder.add_node("observability_tool_node", observability_tool_node)
