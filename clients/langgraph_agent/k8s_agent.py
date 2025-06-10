@@ -12,20 +12,13 @@ from langgraph.prebuilt import ToolNode
 from llm_backend.init_backend import get_llm_backend_for_tools
 from tools.basic_tool_node import BasicToolNode
 from tools.jaeger_tools import *
-from tools.text_editing.open import open_file
+from tools.text_editing.file_manip import open_file
 from typing_extensions import TypedDict
+
+from clients.langgraph_agent.state import State
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-
-class State(TypedDict):
-    # Messages have the type "list". The `add_messages` function
-    # in the annotation defines how this state key should be updated
-    # (in this case, it appends messages to the list, rather than overwriting them)
-    messages: Annotated[list, add_messages]
-    curr_file: str
-    curr_line: int
 
 
 class XAgent:
@@ -58,7 +51,6 @@ class XAgent:
         Use in the conditional_edge to route to the ToolNode if the last message
         has tool calls. Otherwise, route to the end.
         """
-        logger.info(f"route_tools: {state}")
         if isinstance(state, list):
             ai_message = state[-1]
         elif messages := state.get("messages", []):
@@ -82,6 +74,7 @@ class XAgent:
 
     # this is the agent node. it simply queries the llm and return the results
     def llm_inference_step(self, state: State):
+        logger.info("invoking llm inference, custom state: %s", state["curr_file"])
         return {"messages": [self.llm.inference(messages=state["messages"], tools=self.all_tools)]}
 
     def build_agent(self):
@@ -143,13 +136,12 @@ class XAgent:
             config=config,
             stream_mode="values",
         ):
-            logger.info(event)
             event["messages"][-1].pretty_print()
             for value in event.values():
                 try:
                     logger.info("Assistant: %s", value["messages"][-1].content)
                 except TypeError as e:
-                    logger.info(f"Please ignore, Error: {e}")
+                    pass
 
 
 if __name__ == "__main__":

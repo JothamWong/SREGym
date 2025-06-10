@@ -8,7 +8,6 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 
-from clients.langgraph_agent.k8s_agent import State
 from clients.langgraph_agent.state import State
 from clients.langgraph_agent.tools.text_editing.windowed_file import WindowedFile
 
@@ -56,17 +55,25 @@ def open_file(
         try:
             line_num = int(line_number)
         except ValueError:
-            print('Usage: open "<file>" [<line_number>]')
-            print("Error: <line_number> must be a number")
-            sys.exit(1)
+            msg_txt = 'Usage: open "<file>" [<line_number>]' + "Error: <line_number> must be a number"
+            return Command(
+                update=update_file_vars_in_state(state, msg_txt),
+            )
         if line_num > wf.n_lines:
-            print(f"Warning: <line_number> ({line_num}) is greater than the number of lines in the file ({wf.n_lines})")
-            print(f"Warning: Setting <line_number> to {wf.n_lines}")
+            msg_txt = (
+                f"Warning: <line_number> ({line_num}) is greater than the number of lines in the file ({wf.n_lines})"
+                + f"Warning: Setting <line_number> to {wf.n_lines}"
+            )
             line_num = wf.n_lines
+            return Command(
+                update=update_file_vars_in_state(state, msg_txt),
+            )
         elif line_num < 1:
-            print(f"Warning: <line_number> ({line_num}) is less than 1")
-            print("Warning: Setting <line_number> to 1")
+            msg_txt = f"Warning: <line_number> ({line_num}) is less than 1" + "Warning: Setting <line_number> to 1"
             line_num = 1
+            return Command(
+                update=update_file_vars_in_state(state, msg_txt),
+            )
     else:
         # Default to middle of window if no line number provided
         line_num = wf.first_line
@@ -74,5 +81,5 @@ def open_file(
     wf.goto(line_num - 1, mode="top")
     msg_txt = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
     return Command(
-        update=update_file_vars_in_state(state, state["messages"][-1]),
+        update=update_file_vars_in_state(state, ToolMessage(content=msg_txt)),
     )
