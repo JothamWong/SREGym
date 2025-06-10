@@ -5,7 +5,7 @@ from langgraph.prebuilt import ToolNode
 from llm_backend.init_backend import get_llm_backend_for_tools
 from tools.basic_tool_node import BasicToolNode
 from tools.jaeger_tools import *
-from tools.text_editing.file_manip import goto_line, open_file
+from tools.text_editing.file_manip import create, goto_line, open_file
 
 from clients.langgraph_agent.state import State
 
@@ -31,7 +31,7 @@ class XAgent:
             get_services,
             get_operations,
         ]
-        self.file_editing_tools = [open_file, goto_line]
+        self.file_editing_tools = [open_file, goto_line, create]
         self.llm = llm
 
     @property

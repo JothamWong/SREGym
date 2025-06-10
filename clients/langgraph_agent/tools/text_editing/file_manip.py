@@ -150,3 +150,29 @@ def goto_line(
             ToolMessage(content=msg_txt, tool_call_id=tool_call_id),
         )
     )
+
+
+@tool("create", description="Create a new file. path: <path to new file>")
+def create(state: Annotated[dict, InjectedState], tool_call_id: Annotated[str, InjectedToolCallId], path: str):
+    path = Path(path)
+    if path.exists():
+        msg_txt = f"Warning: File '{path}' already exists."
+        return Command(
+            update=update_file_vars_in_state(
+                state,
+                ToolMessage(content=msg_txt, tool_call_id=tool_call_id),
+            )
+        )
+
+    path.write_text("\n")
+
+    wf = WindowedFile(path=path)
+    wf.first_line = 0
+    wf.print_window()
+    msg_txt = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+    return Command(
+        update=update_file_vars_in_state(
+            state,
+            ToolMessage(content=msg_txt, tool_call_id=tool_call_id),
+        )
+    )
