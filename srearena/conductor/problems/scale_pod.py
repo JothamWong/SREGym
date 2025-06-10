@@ -4,15 +4,11 @@ import time
 
 from srearena.conductor.oracles.detection import DetectionOracle
 from srearena.conductor.oracles.localization import LocalizationOracle
-from srearena.conductor.oracles.mitigation import MitigationOracle
+from srearena.conductor.oracles.scale_pod_zero_mitigation import ScalePodZeroMitigationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_virtual import VirtualizationFaultInjector
-from srearena.generators.workload.wrk import Wrk
-from srearena.paths import TARGET_MICROSERVICES
 from srearena.service.apps.socialnet import SocialNetwork
 from srearena.service.kubectl import KubeCtl
-
-from .helpers import get_frontend_url
 
 
 class ScalePodSocialNet(Problem):
@@ -25,26 +21,12 @@ class ScalePodSocialNet(Problem):
         # Choose a very front service to test - this will directly cause an exception
         # TODO: We should create more problems with this using different faulty services
         # self.faulty_service = "nginx-thrift"
-        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
         # === Attach evaluation oracles ===
         self.detection_oracle = DetectionOracle(problem=self, expected="Yes")
 
         self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
 
-        self.mitigation_oracle = MitigationOracle(problem=self)
-
-        # === Workload setup ===
-        self.payload_script = TARGET_MICROSERVICES / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
-
-    def start_workload(self):
-        print("== Start Workload ==")
-        frontend_url = get_frontend_url(self.app)
-
-        wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
-        wrk.start_workload(
-            payload_script=self.payload_script,
-            url=f"{frontend_url}/wrk2-api/post/compose",
-        )
+        self.mitigation_oracle = ScalePodZeroMitigationOracle(problem=self)
 
     def inject_fault(self):
         print("== Fault Injection ==")

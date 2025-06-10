@@ -93,6 +93,23 @@ cd scripts/geni-lib
 python3 genictl.py -i
 ```
 
+Or run the experiment, and provision a k8s cluster with SREArena deployed in a single-shot command:
+
+```bash
+python3 genictl.py quick-experiment \
+    --site wisconsin \
+    --hardware-type c220g5 \
+    --nodes 3 \
+    --duration 4 \
+    --ssh-user <your-user> \
+    --ssh-key ~/cloudlab_decrypted.pem \
+    --k8s \
+    --deploy-srearena \
+    --deploy-key ~/srearena_deploy
+```
+
+Replace `srearena_deploy` with the file name where you keep your deploy key.
+
 ### Available Commands
 
 1. **create-slice**

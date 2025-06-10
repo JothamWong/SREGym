@@ -34,10 +34,40 @@ class Conductor:
         self.agent = agent
         self.agent_name = name
 
-    def init_problem(self, problem_id: str):
+    async def run_problem(self):
+        try:
+            instr = "Please take the next action"
+            while self.submission_stage != "done":
+                action = await self.ask_agent(instr)
+                self.sprint.agent(action)
+                env_response = await self.ask_env(action)
+                self.sprint.service(env_response)
+        except Exception as e:
+            with CriticalSection():
+                self.problem.recover_fault()
+                atexit.unregister(exit_cleanup_fault)
+            raise e
+
+        self.execution_end_time = time.time()
+
+        with CriticalSection():
+            self.problem.recover_fault()
+            atexit.unregister(exit_cleanup_fault)
+
+        self.problem.app.cleanup()
+        self.prometheus.teardown()
+        self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
+        self.kubectl.exec_command("kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml")
+        self.kubectl.wait_for_namespace_deletion("openebs")
+
+        return self.results
+
+    def init_problem(self, problem_id: str, is_noop: bool = False):
         self.execution_start_time = time.time()
         self.problem_id = problem_id
         self.problem = self.problems.get_problem_instance(problem_id)
+        self.submission_stage = "detection"
+        self.results = {}
 
         print(f"[Session Start] Problem ID: {problem_id}")
         print("Setting up OpenEBS...")
@@ -56,13 +86,10 @@ class Conductor:
             self.problem.inject_fault()
             atexit.register(exit_cleanup_fault, prob=self.problem)
 
-        if inspect.iscoroutinefunction(self.problem.start_workload):
-            asyncio.create_task(self.problem.start_workload())
-        else:
-            self.problem.start_workload()
+        self.problem.app.start_workload()
 
         return (
-            "Problem loaded.",
+            f"Problem {problem_id} initialized.",
             "Use submit(...) when ready.",
             {"submit(...)": "Submit your solution"},
         )
@@ -151,36 +178,29 @@ class Conductor:
             return "[✅] Problem completed."
 
     async def start_problem(self):
-        instr = "Please take the next action"
-        try:
-            while self.submission_stage != "done":
-                action = await self.ask_agent(instr)
-                self.sprint.agent(action)
-                env_response = await self.ask_env(action)
-                self.sprint.service(env_response)
+        # === Main problem run ===
+        self.init_problem(self.problem_id, is_noop=False)
+        faulty_results = await self.run_problem()
 
-        except Exception as e:
-            with CriticalSection():
-                self.problem.recover_fault()
-                atexit.unregister(exit_cleanup_fault)
-            raise e
+        # === NOOP problem run ===
+        noop_id = self.problems.get_matching_noop_id(self.problem.app)
+        if noop_id is not None:
+            print(f"\n[INFO] Running NOOP problem: {noop_id}")
+            self.init_problem(noop_id, is_noop=True)
+            noop_results = await self.run_problem()
+        else:
+            print(f"[WARN] No matching NOOP found for {self.problem_id}. Skipping NOOP.")
+            noop_results = {}
 
-        self.execution_end_time = time.time()
-
-        with CriticalSection():
-            self.problem.recover_fault()
-            atexit.unregister(exit_cleanup_fault)
-
-        self.problem.app.cleanup()
-        self.prometheus.teardown()
-
-        self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
-        self.kubectl.exec_command("kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml")
-        self.kubectl.wait_for_namespace_deletion("openebs")
-
-        return {"results": self.results}
+        return {
+            "results": {
+                "faulty": faulty_results,
+                "noop": noop_results,
+            }
+        }
 
 
 def exit_cleanup_fault(prob):
     print("Recovering fault before exit...")
     prob.recover_fault()
+    # TODO: Clean up everything else too

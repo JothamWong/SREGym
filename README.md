@@ -222,55 +222,49 @@ Similar to applications, SREArena provides a default [list of problems](/srearen
 
 Each problem in SREArena has 5 components:
 1. *Application*: The application on which the problem is based.
-2. *Task*: The AIOps task that the agent needs to perform.
- Currently we support: [Detection](/srearena/conductor/tasks/detection.py), [Localization](/srearena/conductor/tasks/localization.py), [Analysis](/srearena/conductor/tasks/analysis.py), and [Mitigation](/srearena/conductor/tasks/mitigation.py).
-3. *Fault*: The fault being introduced in the application.
-4. *Workload*: The workload that is generated for the application.
-5. *Evaluator*: The evaluator that checks the agent's performance.
+2. *Fault*: The fault being injected.
+3. *Oracle*: How the problem is evaluated on the relevant tasks; detection, localization, and mitigation.
 
 To add a new problem to SREArena, create a new Python file 
 in the [`problems`](/srearena/conductor/problems) directory, as follows:
 
-1. **Setup**. Import your chosen application (say `MyApp`) and task (say `LocalizationTask`):
+1. **Setup**. Import your chosen application, the problem interface, and relevant oracles:
 
     ```python
     from srearena.service.apps.myapp import MyApp
-    from srearena.conductor.tasks.localization import LocalizationTask
+    from srearena.conductor.oracles.detection import DetectionOracle
+    from srearena.conductor.oracles.localization import LocalizationOracle
+    from srearena.conductor.oracles.mitigation import MitigationOracle
+    from srearena.conductor.problems.base import Problem
     ```
 
-2. **Define**. To define a problem, create a class that inherits from your chosen `Task`, and defines 3 methods: `start_workload`, `inject_fault`, and `eval`:
+2. **Define**. To define a problem, create a class that inherits from the `Problem` class, and defines 2 methods:, `inject_fault`, and `recover_fault`. Remember to setup your oracles as well!:
 
     ```python
-    class MyProblem(LocalizationTask):
+    class MyProblem(Problem):
         def __init__(self):
             self.app = MyApp()
-        
-        def start_workload(self):
-            # <your workload logic here>
+            self.faulty_service # Used for localization, can be None or a list
+            # === Attach evaluation oracles ===
+            self.detection_oracle = DetectionOracle(problem=self, expected="Yes")
+
+            self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
+
+            self.mitigation_oracle = MitigationOracle(problem=self)
         
         def inject_fault(self)
             # <your fault injection logic here>
         
-        def eval(self, soln, trace, duration):
-            # <your evaluation logic here>
+        def recover_fault(self):
+            # <your fault recovery logic here>
     ```
 
 3. **Register**. Finally, add your problem to the conductor's registry [here](/srearena/conductor/problems/registry.py).
 
 
-See a full example of a problem [here](/srearena/conductor/problems/k8s_target_port_misconfig/target_port.py). 
+See a full example of a problem [here](/srearena/conductor/problems/target_port.py). 
 <details>
   <summary>Click to show the description of the problem in detail</summary>
-
-- **`start_workload`**: Initiates the application's workload. Use your own generator or SREArena's default, which is based on [wrk2](https://github.com/giltene/wrk2):
-
-    ```python
-    from srearena.generator.workload.wrk import Wrk
-
-    wrk = Wrk(rate=100, duration=10)
-    wrk.start_workload(payload="<wrk payload script>", url="<app URL>")
-    ```
-    > Relevant Code: [srearena/generators/workload/wrk.py](/srearena/generators/workload/wrk.py)
 
 - **`inject_fault`**: Introduces a fault into the application. Use your own injector or SREArena's built-in one which you can also extend. E.g., a misconfig in the K8S layer:
 
@@ -282,22 +276,6 @@ See a full example of a problem [here](/srearena/conductor/problems/k8s_target_p
     ```
 
     > Relevant Code: [srearena/generators/fault](/srearena/generators/fault)
-
-
-- **`eval`**: Evaluates the agent's solution using 3 params: (1) *soln*: agent's submitted solution if any, (2) *trace*: agent's action trace, and (3) *duration*: time taken by the agent.
-
-    Here, you can use built-in default evaluators for each task and/or add custom evaluations. The results are stored in `self.results`:
-    ```python
-    def eval(self, soln, trace, duration) -> dict:
-        super().eval(soln, trace, duration)     # default evaluation
-        self.add_result("myMetric", my_metric(...))     # add custom metric
-        return self.results
-    ```
-
-    > *Note*: When an agent starts a problem, the conductor creates a [`Session`](/srearena/session.py) object that stores the agent's interaction. The `trace` parameter is this session's recorded trace.
-
-    > Relevant Code: [srearena/conductor/evaluators/](/srearena/conductor/evaluators/)
-
 </details>
 
 
@@ -309,7 +287,7 @@ See a full example of a problem [here](/srearena/conductor/problems/k8s_target_p
 <details>
   <summary>Generators</summary>
   <pre>
-  generators - the problem generators for srearena
+  generators - the problem generators for srearena, this is where the fault injection mechanisms are.
   ├── fault - the fault generator organized by fault injection level
   │   ├── base.py
   │   ├── inject_app.py
@@ -324,30 +302,19 @@ See a full example of a problem [here](/srearena/conductor/problems/k8s_target_p
   <summary>Conductor</summary>
   <pre>
   conductor
-  ├── conductor.py - the main orchestration engine
-  ├── parser.py - parser for agent responses
-  ├── evaluators - eval metrics in the system
-  │   ├── prompts.py - prompts for LLM-as-a-Judge
-  │   ├── qualitative.py - qualitative metrics
-  │   └── quantitative.py - quantitative metrics
-  ├── problems - problem definitions in srearena
-  │   ├── k8s_target_port_misconfig - e.g., A K8S TargetPort misconfig problem
-  │  ...
-  │   └── registry.py
-  ├── actions - actions that agents can perform organized by AIOps task type
-  │   ├── base.py
-  │   ├── detection.py
-  │   ├── localization.py
-  │   ├── analysis.py
-  │   └── mitigation.py
-  └── tasks - individual AIOps task definition that agents need to solve
-      ├── base.py
-      ├── detection.py
-      ├── localization.py
-      ├── analysis.py
-      └── mitigation.py
+  ├── conductor.py - main execution engine coordinating agents and problems
+  ├── problems - fault injection problems
+  │   ├── base.py - abstract base class for problems
+  │   ├── helpers.py - shared utilities (e.g., get_frontend_url)
+  │   ├── noop.py - baseline problem with no fault injected
+  │   └── registry.py - maps problem IDs to class instances
+  ├── oracles - stage-wise evaluation of agent submissions
+  │   ├── detection.py - checks if the agent correctly detects the presence of a fault
+  │   ├── localization.py - evaluates if the agent correctly identifies the faulty components
+  │   └── mitigation.py - validates whether the fault was fixed properly
   </pre>
 </details>
+
 
 <details>
   <summary>Service</summary>
