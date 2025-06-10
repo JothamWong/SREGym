@@ -221,6 +221,30 @@ class VirtualizationFaultInjector(FaultInjector):
 
             print(f"Recovered from wrong binary usage fault for service: {service}")
 
+    # V.7 - Inject a fault by deleting the specified service
+    def inject_missing_service(self, microservices: list[str]):
+        """Inject a fault by deleting the specified service."""
+        for service in microservices:
+            service_yaml_file = self._get_service_yaml(service)
+            delete_service_command = f"kubectl delete service {service} -n {self.namespace}"
+            result = self.kubectl.exec_command(delete_service_command)
+            print(f"Deleted service {service} to enforce the fault: {result}")
+
+            self._write_yaml_to_file(service, service_yaml_file)
+
+        # Restart all the pods
+        self.kubectl.exec_command(f"kubectl delete pods --all -n {self.namespace}")
+        time.sleep(30)  # Wait for pods to restart
+
+    def recover_missing_service(self, microservices: list[str]):
+        """Recover the fault by recreating the specified service."""
+        for service in microservices:
+            delete_service_command = f"kubectl delete service {service} -n {self.namespace}"
+            result = self.kubectl.exec_command(delete_service_command)
+            create_service_command = f"kubectl apply -f /tmp/{service}_modified.yaml -n {self.namespace}"
+            result = self.kubectl.exec_command(create_service_command)
+            print(f"Recreated service {service} to recover from the fault: {result}")
+
     ############# HELPER FUNCTIONS ################
     def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
         for service in microservices:
@@ -267,6 +291,10 @@ class VirtualizationFaultInjector(FaultInjector):
         deployment_yaml = self.kubectl.exec_command(
             f"kubectl get deployment {service_name} -n {self.namespace} -o yaml"
         )
+        return yaml.safe_load(deployment_yaml)
+
+    def _get_service_yaml(self, service_name: str):
+        deployment_yaml = self.kubectl.exec_command(f"kubectl get service {service_name} -n {self.namespace} -o yaml")
         return yaml.safe_load(deployment_yaml)
 
     def _change_node_selector(self, deployment_yaml: dict, node_name: str):

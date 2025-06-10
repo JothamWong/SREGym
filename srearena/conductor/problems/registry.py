@@ -9,6 +9,7 @@ from srearena.conductor.problems.image_slow_load import ImageSlowLoad
 from srearena.conductor.problems.kafka_queue_problems import KafkaQueueProblems
 from srearena.conductor.problems.loadgenerator_flood_homepage import LoadGeneratorFloodHomepage
 from srearena.conductor.problems.misconfig_app import MisconfigAppHotelRes
+from srearena.conductor.problems.missing_service import MissingService
 from srearena.conductor.problems.network_delay import ChaosMeshNetworkDelay
 from srearena.conductor.problems.network_loss import ChaosMeshNetworkLoss
 from srearena.conductor.problems.no_op import NoOp
@@ -61,6 +62,13 @@ class ProblemRegistry:
             "astronomy_shop_recommendation_service_cache_failure": RecommendationServiceCacheFailure,
             "redeploy_without_PV": RedeployWithoutPV,
             "wrong_bin_usage": WrongBinUsage,
+            "missing_service_hotel_reservation": lambda: MissingService(
+                app_name="hotel_reservation", faulty_service="mongodb-rate"
+            ),
+            "missing_service_social_network": lambda: MissingService(
+                app_name="social_network", faulty_service="user-service"
+            ),
+            # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
             # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
