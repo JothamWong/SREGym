@@ -25,9 +25,9 @@ class TrainTicket(Application):
         """Deploy the Helm configurations and flagd infrastructure."""
         if self.namespace:
             self.kubectl.create_namespace_if_not_exist(self.namespace)
-        
+
         self._deploy_flagd_infrastructure()
-        
+
         Helm.install(**self.helm_configs)
         Helm.assert_if_deployed(self.helm_configs["namespace"])
 
@@ -42,25 +42,29 @@ class TrainTicket(Application):
         # Helm.uninstall(**self.helm_configs)
         if self.namespace:
             self.kubectl.delete_namespace(self.namespace)
-    
+
+    def start_workload(self):
+        # TODO: implement workload generator
+        pass
+
     def _deploy_flagd_infrastructure(self):
         """Deploy flagd service and ConfigMap for fault injection."""
         try:
             flagd_templates_path = TARGET_MICROSERVICES / "train-ticket" / "templates"
-            
+
             if (flagd_templates_path / "flagd-deployment.yaml").exists():
                 result = self.kubectl.exec_command(f"kubectl apply -f {flagd_templates_path / 'flagd-deployment.yaml'}")
                 print(f"[TrainTicket] Deployed flagd service: {result}")
-            
+
             if (flagd_templates_path / "flagd-config.yaml").exists():
                 result = self.kubectl.exec_command(f"kubectl apply -f {flagd_templates_path / 'flagd-config.yaml'}")
                 print(f"[TrainTicket] Deployed flagd ConfigMap: {result}")
-                
+
             print(f"[TrainTicket] flagd infrastructure deployed successfully")
-            
+
         except Exception as e:
             print(f"[TrainTicket] Warning: Failed to deploy flagd infrastructure: {e}")
-    
+
     def get_flagd_status(self):
         """Check if flagd infrastructure is running."""
         try:
