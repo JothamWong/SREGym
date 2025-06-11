@@ -9,6 +9,7 @@ from srearena.conductor.problems.registry import ProblemRegistry
 from srearena.service.kubectl import KubeCtl
 from srearena.service.telemetry.prometheus import Prometheus
 from srearena.utils.critical_section import CriticalSection
+from srearena.utils.sigint_aware_section import SigintAwareSection
 from srearena.utils.status import SessionPrint, SubmissionStatus
 
 
@@ -45,14 +46,14 @@ class Conductor:
         except Exception as e:
             with CriticalSection():
                 self.problem.recover_fault()
-                atexit.unregister(exit_cleanup_fault)
+                atexit.unregister(self.exit_cleanup_and_recover_fault)
             raise e
 
         self.execution_end_time = time.time()
 
         with CriticalSection():
             self.problem.recover_fault()
-            atexit.unregister(exit_cleanup_fault)
+            atexit.unregister(self.exit_cleanup_and_recover_fault)
 
         self.problem.app.cleanup()
         self.prometheus.teardown()
@@ -63,28 +64,35 @@ class Conductor:
         return self.results
 
     def init_problem(self, problem_id: str, is_noop: bool = False):
-        self.execution_start_time = time.time()
-        self.problem_id = problem_id
-        self.problem = self.problems.get_problem_instance(problem_id)
-        self.submission_stage = "detection"
-        self.results = {}
+        try:
+            with SigintAwareSection():
+                self.execution_start_time = time.time()
+                self.problem_id = problem_id
+                self.problem = self.problems.get_problem_instance(problem_id)
+                self.submission_stage = "detection"
+                self.results = {}
 
-        print(f"[Session Start] Problem ID: {problem_id}")
-        print("Setting up OpenEBS...")
-        self.kubectl.exec_command("kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml")
-        self.kubectl.exec_command(
-            'kubectl patch storageclass openebs-hostpath -p \'{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}\''
-        )
-        self.kubectl.wait_for_ready("openebs")
-        print("OpenEBS setup completed.")
+                print(f"[Session Start] Problem ID: {problem_id}")
+                print("Setting up OpenEBS...")
+                self.kubectl.exec_command("kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml")
+                self.kubectl.exec_command(
+                    'kubectl patch storageclass openebs-hostpath -p \'{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}\''
+                )
+                self.kubectl.wait_for_ready("openebs")
+                print("OpenEBS setup completed.")
 
-        self.prometheus.deploy()
-        self.problem.app.delete()
-        self.problem.app.deploy()
+                self.prometheus.deploy()
+
+                self.problem.app.delete()
+                self.problem.app.deploy()
+        except (KeyboardInterrupt):
+            print("\nCTRL+C detected while setting up resources. Immediately terminating and cleaning up resources...")
+            atexit.register(self.exit_cleanup_and_recover_fault)
+            raise SystemExit from None
 
         with CriticalSection():
             self.problem.inject_fault()
-            atexit.register(exit_cleanup_fault, prob=self.problem, prometheus=self.prometheus, kubectl=self.kubectl)
+            atexit.register(self.exit_cleanup_and_recover_fault)
 
         self.problem.app.start_workload()
 
@@ -196,15 +204,20 @@ class Conductor:
             "results": {
                 "faulty": faulty_results,
                 "noop": noop_results,
-            }
+            } 
         }
 
+    def exit_cleanup_and_recover_fault(self):
+        if self.problem:
+            print("Recovering fault before exit...")
+            self.problem.recover_fault()
+            self.problem.app.cleanup()
 
-def exit_cleanup_fault(prob, prometheus, kubectl):
-    print("Recovering fault before exit...")
-    prob.recover_fault()
-    prob.app.cleanup()
-    prometheus.teardown()
-    kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
-    kubectl.exec_command("kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml")
-    kubectl.wait_for_namespace_deletion("openebs")
+        self.prometheus.teardown()
+
+        self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
+        self.kubectl.exec_command("kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml")
+        self.kubectl.wait_for_namespace_deletion("openebs")
+
+def exit_cleanup_fault(conductor):
+    conductor.exit_cleanup_and_recover_fault()
