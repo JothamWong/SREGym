@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 from flake8_utils import flake8, format_flake8_output  # type: ignore
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -179,8 +179,6 @@ def create(state: Annotated[dict, InjectedState], tool_call_id: Annotated[str, I
     )
 
 
-RETRY_WITH_OUTPUT_TOKEN = "###SWE-AGENT-RETRY-WITH-OUTPUT###"
-
 _NOT_FOUND = """Your edit was not applied (file not modified): Text {search!r} not found in displayed lines (or anywhere in the file).
 Please modify your search string. Did you forget to properly handle whitespace/indentation?
 You can also call `open` again to re-display the file with the correct context.
@@ -289,7 +287,7 @@ def edit(
     # args.replace = args.replace.encode("utf8").decode("unicode_escape")
 
     if search == replace:
-        msg_txt = _NO_CHANGES_MADE_MSG + "\n" + RETRY_WITH_OUTPUT_TOKEN
+        msg_txt = _NO_CHANGES_MADE_MSG
         return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
 
     pre_edit_lint = flake8(wf.path)
@@ -298,7 +296,7 @@ def edit(
         if not replace_all:
             window_text = wf.get_window_text()
             if window_text.count(search) > 1:
-                msg_txt = _MULTIPLE_OCCURRENCES_MSG.format(search=search) + "\n" + RETRY_WITH_OUTPUT_TOKEN
+                msg_txt = _MULTIPLE_OCCURRENCES_MSG.format(search=search)
                 return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
             replacement_info = wf.replace_in_window(search, replace)
             # todo: Should warn if more than one occurrence was found?
@@ -313,7 +311,7 @@ def edit(
             )
         else:
             msg_txt = _NOT_FOUND.format(search=search)
-        msg_txt = msg_txt + "\n" + RETRY_WITH_OUTPUT_TOKEN
+        msg_txt = msg_txt
         return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
 
     post_edit_lint = flake8(wf.path)
@@ -344,7 +342,7 @@ def edit(
             window_applied=with_edits,
             window_original=without_edits,
         )
-        msg_txt = msg_txt + "\n" + RETRY_WITH_OUTPUT_TOKEN
+        msg_txt = msg_txt
         return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
     if not replace_all:
         msg_txt = _SINGLE_EDIT_SUCCESS_MSG
@@ -352,4 +350,45 @@ def edit(
         msg_txt = _MULTIPLE_EDITS_SUCCESS_MSG.format(n_replacements=replacement_info.n_replacements)
 
     msg_txt = msg_txt + "\n\n" + wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+    return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
+
+
+@tool("insert")
+def insert(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    text: str,
+    line: Union[int, None] = None,
+):
+    """
+    Insert <text> at the end of the currently opened file or after <line> if specified.
+    """
+    if len(state["curr_file"]) == 0:
+        msg_txt = "No file opened. Either `open` or `create` a file first."
+        return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
+    wf = WindowedFile(state["curr_file"])
+
+    pre_edit_lint = flake8(wf.path)
+    insert_info = wf.insert(text, line=line - 1 if line is not None else None)
+    post_edit_lint = flake8(wf.path)
+
+    # Try to filter out pre-existing errors
+    replacement_window = (insert_info.first_inserted_line, insert_info.first_inserted_line)
+    new_flake8_output = format_flake8_output(
+        post_edit_lint,
+        previous_errors_string=pre_edit_lint,
+        replacement_window=replacement_window,
+        replacement_n_lines=insert_info.n_lines_added,
+    )
+
+    if new_flake8_output:
+        with_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+        wf.undo_edit()
+        without_edits = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
+        msg_txt = _LINT_ERROR_TEMPLATE.format(
+            errors=new_flake8_output, window_applied=with_edits, window_original=without_edits
+        )
+        return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
+
+    msg_txt = wf.get_window_text(line_numbers=True, status_line=True, pre_post_line=True)
     return Command(update=update_file_vars_in_state(state, msg_txt, tool_call_id))
