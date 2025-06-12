@@ -1,4 +1,5 @@
 import logging
+import os.path
 from pathlib import Path
 from typing import Annotated, Optional, Union
 
@@ -70,14 +71,18 @@ def open_file(
     path: Optional[str] = None,
     line_number: Optional[str] = None,
 ) -> Command:
-    # This tool should get both path and line number from the state
-    # if the state does not have them, then it means no file has been opened yet.
+    logger.info("in open_file, the last msg: %s", state["messages"][-1])
     if path is None:
         msg_txt = 'Usage: open "<file>" [<line_number>]'
         return Command(
             update=update_file_vars_in_state(state, msg_txt, tool_call_id),
         )
-    logger.info("in open_file, the last msg: %s", state["messages"][-1])
+
+    if not os.path.exists(path):
+        msg_txt = f"Error: File '{path}' does not exist."
+        return Command(
+            update=update_file_vars_in_state(state, msg_txt, tool_call_id),
+        )
 
     wf = WindowedFile(path=Path(path), exit_on_exception=False)
 
