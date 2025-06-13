@@ -132,12 +132,18 @@ class XAgent:
         logger.info("last state: %s", last_state)
         if len(last_state.values) != 0:
             msgs = last_state.values["messages"] + [{"role": "user", "content": user_input}]
+            workdir = last_state.values["workdir"]
             curr_file = last_state.values["curr_file"]
             curr_line = last_state.values["curr_line"]
             logger.info("last curr_file: %s, last curr_line: %s, last messages: %s", curr_file, curr_line, msgs)
             state = {"messages": msgs, "curr_file": curr_file, "curr_line": curr_line}
         else:
-            state = {"messages": [{"role": "user", "content": user_input}], "curr_file": "", "curr_line": 0}
+            state = {
+                "messages": [{"role": "user", "content": user_input}],
+                "workdir": "",
+                "curr_file": "",
+                "curr_line": 0,
+            }
         for event in self.graph.stream(
             state,
             config=config,
