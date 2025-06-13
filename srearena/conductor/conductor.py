@@ -144,6 +144,7 @@ class Conductor:
 
                 self.problem.app.delete()
                 self.problem.app.deploy()
+                self.problem.app.start_workload()
         except KeyboardInterrupt:
             print("\nImmediately terminating and Cleaning up...")
             self.exit_cleanup_and_recover_fault()
