@@ -294,8 +294,8 @@ class VirtualizationFaultInjector(FaultInjector):
             service_config = self.kubectl.get_service_json(service, self.namespace)
             current_selectors = service_config.get("spec", {}).get("selector", {})
 
-            # Removing the wrong selector
-            del current_selectors["current_service_name"]
+            # Set the key to None to delete it from the live object
+            current_selectors["current_service_name"] = None
             service_config["spec"]["selector"] = current_selectors
             self.kubectl.patch_service(service, self.namespace, service_config)
 
