@@ -2,6 +2,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from langchain.agents.chat.prompt import HUMAN_MESSAGE
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel
@@ -30,26 +31,20 @@ def feed_input_to_agent(xagent: XAgent, input_text: list[str]):
 ROOT_REPO_PATH = "/Users/yms/tianyins_group/srearena"
 
 USER_INPUTS = [
-    (
-        [
-            # open an existing file
-            "open /Users/yms/tianyins_group/srearena/tests/file_editing/example.txt at line 1"
-        ],
-        "hello world",
-    ),
+    f"{ROOT_REPO_PATH}/tests/file_editing/open_1.yaml",
+    f"{ROOT_REPO_PATH}/tests/file_editing/open_2.yaml",
 ]
 
 
-@pytest.mark.parametrize("test_tuple, expected_result", USER_INPUTS)
+@pytest.mark.parametrize("test_campaign_file", USER_INPUTS)
 class TestOpenFile:
-    def test_open_file_success(self, test_tuple: list[str], expected_result: str):
+    def test_open_file_success(self, test_campaign_file: str):
         xagent = get_agent()
         xagent.test_campaign_setter(f"{ROOT_REPO_PATH}/tests/file_editing/open_1.yaml")
-        feed_input_to_agent(xagent, test_tuple)
+        test_campaign = yaml.safe_load(open(test_campaign_file, "r"))
+        test_user_inputs = test_campaign["user_inputs"]
+        feed_input_to_agent(xagent, test_user_inputs)
         config = {"configurable": {"thread_id": "1"}}
-        assert (
-            xagent.graph.get_state(config).values["curr_file"]
-            == "/Users/yms/tianyins_group/srearena/tests/file_editing/example.txt"
-        )
-        assert xagent.graph.get_state(config).values["curr_line"] == "1"
-        assert expected_result in xagent.graph.get_state(config).values["messages"][-1].content
+        assert xagent.graph.get_state(config).values["curr_file"] == test_campaign["expected_curr_file"]
+        assert xagent.graph.get_state(config).values["curr_line"] == str(test_campaign["expected_curr_line"])
+        assert test_campaign["expected_output"] in xagent.graph.get_state(config).values["messages"][-1].content

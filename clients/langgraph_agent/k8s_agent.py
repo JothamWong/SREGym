@@ -133,18 +133,28 @@ class XAgent:
                 "output_token_details": {"audio": 0, "reasoning": 0},
             },
         )
+
+        tool_or_ai_response = "tool"
         logger.info("invoking mock llm inference, custom state: %s", state)
         test_campaign = yaml.safe_load(open(self.test_campaign_file, "r"))
         for tool_call in test_campaign["tool_calls"]:
-            function_name = tool_call["name"]
-            function_args = {key: value for key, value in tool_call.items() if key != "name"}
-            function_args_str = json.dumps(function_args)
-            ai_message_template.additional_kwargs["tool_calls"][0]["function"]["arguments"] = function_args_str
-            ai_message_template.additional_kwargs["tool_calls"][0]["function"]["name"] = function_name
-            ai_message_template.tool_calls[0]["name"] = function_name
-            ai_message_template.tool_calls[0]["args"] = function_args
-            logger.info("[mock llm] type: %s, ai message returned: %s", type(ai_message_template), ai_message_template)
-            logger.info("[mock llm] messages returns: %s", [state["messages"] + [ai_message_template]])
+            if tool_or_ai_response == "tool":
+                function_name = tool_call["name"]
+                function_args = {key: value for key, value in tool_call.items() if key != "name"}
+                function_args_str = json.dumps(function_args)
+                ai_message_template.additional_kwargs["tool_calls"][0]["function"]["arguments"] = function_args_str
+                ai_message_template.additional_kwargs["tool_calls"][0]["function"]["name"] = function_name
+                ai_message_template.tool_calls[0]["name"] = function_name
+                ai_message_template.tool_calls[0]["args"] = function_args
+                logger.info(
+                    "[mock llm] type: %s, ai message returned: %s", type(ai_message_template), ai_message_template
+                )
+                logger.info("[mock llm] messages returns: %s", [state["messages"] + [ai_message_template]])
+                tool_or_ai_response = "ai"
+            elif tool_or_ai_response == "ai":
+                ai_message_template.tool_calls = []
+                ai_message_template.content = "test"
+                tool_or_ai_response = "tool"
 
             yield {
                 "messages": state["messages"] + [ai_message_template],
@@ -255,7 +265,7 @@ if __name__ == "__main__":
     llm = get_llm_backend_for_tools()
     xagent = XAgent(llm)
     xagent.build_agent(mock=True)
-    xagent.test_campaign_setter(f"{ROOT_REPO_PATH}/tests/file_editing/open_1.yaml")
+    xagent.test_campaign_setter(f"{ROOT_REPO_PATH}/tests/file_editing/open_2.yaml")
     xagent.save_agent_graph_to_png()
     # a short chatbot loop to demonstrate the workflow.
     # TODO: make a real file-editing agent to test both state & memory mgmt and file editing tools
