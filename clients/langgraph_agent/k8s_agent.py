@@ -53,6 +53,7 @@ class XAgent:
         Use in the conditional_edge to route to the ToolNode if the last message
         has tool calls. Otherwise, route to the end.
         """
+        logger.info("in route tools: %s", state)
         file_tool_names = ["open_file", "goto_line", "create", "edit", "insert"]
         observability_tool_names = ["get_traces", "get_services", "get_operations"]
         if isinstance(state, list):
@@ -63,6 +64,7 @@ class XAgent:
             raise ValueError(f"No messages found in input state to tool_edge: {state}")
         if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
             tool_name = ai_message.tool_calls[0]["name"]
+            logger.info("routing tool name: %s", tool_name)
             if tool_name in file_tool_names:
                 logger.info("invoking tool node: file tool")
                 return "file_editing_tool_node"
@@ -252,7 +254,8 @@ class XAgent:
 if __name__ == "__main__":
     llm = get_llm_backend_for_tools()
     xagent = XAgent(llm)
-    xagent.build_agent()
+    xagent.build_agent(mock=True)
+    xagent.test_campaign_setter(f"{ROOT_REPO_PATH}/tests/file_editing/open_1.yaml")
     xagent.save_agent_graph_to_png()
     # a short chatbot loop to demonstrate the workflow.
     # TODO: make a real file-editing agent to test both state & memory mgmt and file editing tools

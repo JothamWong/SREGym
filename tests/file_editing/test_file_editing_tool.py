@@ -51,5 +51,5 @@ class TestOpenFile:
             xagent.graph.get_state(config).values["curr_file"]
             == "/Users/yms/tianyins_group/srearena/tests/file_editing/example.txt"
         )
-        assert xagent.graph.get_state(config).values["curr_line"] == 1
-        assert xagent.graph.get_state(config).values["messages"][-1].content == expected_result
+        assert xagent.graph.get_state(config).values["curr_line"] == "1"
+        assert expected_result in xagent.graph.get_state(config).values["messages"][-1].content

@@ -1,4 +1,4 @@
 tool_calls:
-  - name: open
-    path: "tests/file_editing/example.txt"
-    line_number: 1
+  - name: "open_file"
+    path: "/Users/yms/tianyins_group/srearena/tests/file_editing/example.txt"
+    line_number: "1"
