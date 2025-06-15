@@ -29,7 +29,7 @@ def feed_input_to_agent(xagent: XAgent, input_text: list[str]):
         xagent.graph_step(user_input)
 
 
-ROOT_REPO_PATH = "/Users/yms/tianyins_group/srearena"
+ROOT_REPO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def git_restore_repo():
