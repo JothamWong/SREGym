@@ -749,6 +749,47 @@ class VirtualizationFaultInjector(FaultInjector):
 
         print(f"DNS policy propagation check for service '{service}' failed after {max_wait}s.")
 
+    def inject_toleration_without_matching_taint(
+        self,
+        microservices: list[str],
+        node_name: str,
+        taint_key: str = "sre-fault",
+        taint_value: str = "blocked",
+        effect: str = "NoSchedule",
+    ):
+
+        self.kubectl.exec_command(
+            f"kubectl taint node {node_name} {taint_key}={taint_value}:{effect} --overwrite"
+        )
+        print(f"Tainted node {node_name} with {taint_key}={taint_value}:{effect}")
+
+        for svc in microservices:
+            self.kubectl.exec_command(
+                f"kubectl delete pod -l app={svc} -n {self.namespace}"
+            )
+        print(f"Deleted pods for {microservices}; they should now be unschedulable.")
+
+
+    def recover_toleration_without_matching_taint(
+        self,
+        microservices: list[str],
+        node_name: str,
+        taint_key: str = "sre-fault",
+        taint_value: str = "blocked",
+        effect: str = "NoSchedule",
+    ):
+
+        self.kubectl.exec_command(
+            f"kubectl taint node {node_name} {taint_key}={taint_value}:{effect}-"
+        )
+        print(f"Removed taint from node {node_name}")
+
+        for svc in microservices:
+            self.kubectl.exec_command(
+                f"kubectl rollout restart deployment {svc} -n {self.namespace}"
+            )
+        self.kubectl.wait_for_stable(self.namespace)
+        print(f"Pods for {microservices} are back to Running")
 
 if __name__ == "__main__":
     namespace = "test-social-network"
