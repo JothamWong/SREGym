@@ -132,14 +132,6 @@ class Conductor:
         try:
             with SigintAwareSection():
                 print(f"[Session Start] Problem ID: {self.problem_id}")
-                print("Setting up OpenEBS...")
-                self.kubectl.exec_command("kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml")
-                self.kubectl.exec_command(
-                    "kubectl patch storageclass openebs-hostpath "
-                    '-p \'{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}\''
-                )
-                self.kubectl.wait_for_ready("openebs")
-                print("OpenEBS setup completed.")
 
                 print("Setting up metrics-server...")
                 self.kubectl.exec_command(
@@ -154,8 +146,16 @@ class Conductor:
                     '{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-preferred-address-types=InternalIP"}'
                     "]'"
                 )
-                self.kubectl.wait_for_ready("metrics-server", namespace="kube-system")
-                print("metrics-server setup completed.")
+                self.kubectl.wait_for_ready("kube-system")  # metrics-server is deployed in kube-system
+
+                print("Setting up OpenEBS...")
+                self.kubectl.exec_command("kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml")
+                self.kubectl.exec_command(
+                    "kubectl patch storageclass openebs-hostpath "
+                    '-p \'{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}\''
+                )
+                self.kubectl.wait_for_ready("openebs")
+                print("OpenEBS setup completed.")
 
                 self.prometheus.deploy()
 
