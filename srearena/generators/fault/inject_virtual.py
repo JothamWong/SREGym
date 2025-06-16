@@ -401,7 +401,7 @@ class VirtualizationFaultInjector(FaultInjector):
 
             new_corefile = "\n".join(new_lines)
 
-            # Verify the removal worked
+            # Verify if the removal worked
             if start_line_id in new_corefile:
                 print("ERROR: Template was not successfully removed!")
                 return
@@ -417,6 +417,157 @@ class VirtualizationFaultInjector(FaultInjector):
             self.kubectl.exec_command("kubectl -n kube-system rollout status deployment coredns --timeout=30s")
 
             print(f"Recovered Service DNS Resolution Failure fault for service: {service}")
+
+    # V.11 - Inject a fault by modifying the DNS policy of a service
+    def inject_wrong_dns_policy(self, microservices: list[str]):
+        for service in microservices:
+            patch = (
+                '[{"op":"replace","path":"/spec/template/spec/dnsPolicy","value":"None"},'
+                '{"op":"add","path":"/spec/template/spec/dnsConfig","value":'
+                '{"nameservers":["8.8.8.8"],"searches":[]}}]'
+            )
+            patch_cmd = f"kubectl patch deployment {service} -n {self.namespace} --type json -p '{patch}'"
+            result = self.kubectl.exec_command(patch_cmd)
+            print(f"Patch result for {service}: {result}")
+
+            self.kubectl.exec_command(f"kubectl rollout restart deployment {service} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl rollout status deployment {service} -n {self.namespace}")
+
+            # Check if nameserver 8.8.8.8 present in the pods
+            self._wait_for_dns_policy_propagation(service, external_ns="8.8.8.8", expect_external=True)
+
+            print(f"Injected wrong DNS policy fault for service: {service}")
+
+    def recover_wrong_dns_policy(self, microservices: list[str]):
+        for service in microservices:
+            patch = (
+                '[{"op":"remove","path":"/spec/template/spec/dnsPolicy"},'
+                '{"op":"remove","path":"/spec/template/spec/dnsConfig"}]'
+            )
+            patch_cmd = f"kubectl patch deployment {service} -n {self.namespace} --type json -p '{patch}'"
+            result = self.kubectl.exec_command(patch_cmd)
+            print(f"Patch result for {service}: {result}")
+
+            self.kubectl.exec_command(f"kubectl rollout restart deployment {service} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl rollout status deployment {service} -n {self.namespace}")
+
+            # Check if nameserver 8.8.8.8 absent in the pods
+            self._wait_for_dns_policy_propagation(service, external_ns="8.8.8.8", expect_external=False)
+
+            print(f"Recovered wrong DNS policy fault for service: {service}")
+
+    # V.12 - Inject a stale CoreDNS config breaking all .svc.cluster.local DNS resolution
+    def inject_stale_coredns_config(self, microservices: list[str] = None):
+        # Get configmap as structured data
+        cm_yaml = self.kubectl.exec_command("kubectl -n kube-system get cm coredns -o yaml")
+        cm_data = yaml.safe_load(cm_yaml)
+        corefile = cm_data["data"]["Corefile"]
+
+        # Check if our template is already present (look for the exact line we inject)
+        template_id = "template ANY ANY svc.cluster.local"
+        if template_id in corefile:
+            print("Cluster DNS failure template already present; recovering from previous injection")
+            self.recover_stale_coredns_config()
+
+            # Re-fetch after recovery
+            cm_yaml = self.kubectl.exec_command("kubectl -n kube-system get cm coredns -o yaml")
+            cm_data = yaml.safe_load(cm_yaml)
+            corefile = cm_data["data"]["Corefile"]
+
+        # Create the NXDOMAIN template block
+        template_block = (
+            "    template ANY ANY svc.cluster.local {\n"
+            '        match ".*\\.svc\\.cluster\\.local\\.?$"\n'
+            "        rcode NXDOMAIN\n"
+            "    }\n"
+        )
+
+        # Find the position of "kubernetes" word
+        kubernetes_pos = corefile.find("kubernetes")
+        if kubernetes_pos == -1:
+            print("Could not locate 'kubernetes' plugin in Corefile")
+            return
+
+        # Find the start of the line containing "kubernetes"
+        line_start = corefile.rfind("\n", 0, kubernetes_pos)
+        if line_start == -1:
+            line_start = 0
+        else:
+            line_start += 1
+
+        # Insert template block before the kubernetes line
+        new_corefile = corefile[:line_start] + template_block + corefile[line_start:]
+
+        cm_data["data"]["Corefile"] = new_corefile
+
+        # Apply using temporary file
+        tmp_file_path = self._write_yaml_to_file("coredns", cm_data)
+
+        self.kubectl.exec_command(f"kubectl apply -f {tmp_file_path}")
+
+        # Restart CoreDNS
+        self.kubectl.exec_command("kubectl -n kube-system rollout restart deployment coredns")
+        self.kubectl.exec_command("kubectl -n kube-system rollout status deployment coredns --timeout=30s")
+
+        print("Injected stale CoreDNS config for all .svc.cluster.local domains")
+
+    def recover_stale_coredns_config(self, microservices: list[str] = None):
+
+        # Get configmap as structured data
+        cm_yaml = self.kubectl.exec_command("kubectl -n kube-system get cm coredns -o yaml")
+        cm_data = yaml.safe_load(cm_yaml)
+        corefile = cm_data["data"]["Corefile"]
+
+        # Check if our template is present
+        template_id = "template ANY ANY svc.cluster.local"
+        if template_id not in corefile:
+            print("No cluster DNS failure template found; nothing to do")
+            return
+
+        lines = corefile.split("\n")
+        new_lines = []
+        skip_block = False
+
+        for line in lines:
+            # Start of template block
+            if not skip_block and template_id in line:
+                skip_block = True
+                continue
+
+            # End of template block
+            if skip_block and line.strip() == "}":
+                skip_block = False
+                continue
+
+            # Skip lines inside the block
+            if skip_block:
+                continue
+
+            # Keep all other lines
+            new_lines.append(line)
+
+        if skip_block:
+            print("WARNING: Template block was not properly closed")
+            return
+
+        new_corefile = "\n".join(new_lines)
+
+        # Verify if the removal worked
+        if template_id in new_corefile:
+            print("ERROR: Template was not successfully removed!")
+            return
+
+        cm_data["data"]["Corefile"] = new_corefile
+
+        # Apply using temporary file
+        tmp_file_path = self._write_yaml_to_file("coredns", cm_data)
+        self.kubectl.exec_command(f"kubectl apply -f {tmp_file_path}")
+
+        # Restart CoreDNS
+        self.kubectl.exec_command("kubectl -n kube-system rollout restart deployment coredns")
+        self.kubectl.exec_command("kubectl -n kube-system rollout status deployment coredns --timeout=30s")
+
+        print("Recovered from stale CoreDNS config for all .svc.cluster.local domains")
 
     ############# HELPER FUNCTIONS ################
     def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
@@ -483,6 +634,53 @@ class VirtualizationFaultInjector(FaultInjector):
         with open(file_path, "w") as file:
             yaml.dump(yaml_content, file)
         return file_path
+
+    def _wait_for_dns_policy_propagation(
+        self, service: str, external_ns: str, expect_external: bool, sleep: int = 2, max_wait: int = 120
+    ):
+
+        waited = 0
+        while waited < max_wait:
+
+            try:
+                deploy = self.kubectl.apps_v1_api.read_namespaced_deployment(service, self.namespace)
+                selector_dict = deploy.spec.selector.match_labels or {}
+                label_selector = ",".join([f"{k}={v}" for k, v in selector_dict.items()]) if selector_dict else None
+            except Exception:
+                label_selector = None
+
+            pods = self.kubectl.core_v1_api.list_namespaced_pod(self.namespace, label_selector=label_selector)
+
+            target_pods = [pod.metadata.name for pod in pods.items if (label_selector or service in pod.metadata.name)]
+
+            if not target_pods:
+                time.sleep(sleep)
+                waited += sleep
+                continue
+
+            state_ok = True
+
+            for pod in target_pods:
+                try:
+                    resolv = self.kubectl.exec_command(
+                        f"kubectl exec {pod} -n {self.namespace} -- cat /etc/resolv.conf"
+                    )
+                except Exception:
+                    state_ok = False
+                    break
+                has_external = external_ns in resolv
+
+                if expect_external != has_external:
+                    state_ok = False
+                    break
+
+            if state_ok:
+                return
+
+            time.sleep(sleep)
+            waited += sleep
+
+        print(f"DNS policy propagation check for service '{service}' failed after {max_wait}s.")
 
 
 if __name__ == "__main__":
