@@ -17,6 +17,7 @@ from srearena.conductor.problems.payment_service_unreachable import PaymentServi
 from srearena.conductor.problems.pod_failure import ChaosMeshPodFailure
 from srearena.conductor.problems.pod_kill import ChaosMeshPodKill
 from srearena.conductor.problems.product_catalog_failure import ProductCatalogServiceFailure
+from srearena.conductor.problems.readiness_probe_misconfiguration import ReadinessProbeMisconfiguration
 from srearena.conductor.problems.recommendation_service_cache_failure import RecommendationServiceCacheFailure
 from srearena.conductor.problems.redeploy_without_pv import RedeployWithoutPV
 from srearena.conductor.problems.resource_request import ResourceRequestTooLarge, ResourceRequestTooSmall
@@ -107,6 +108,15 @@ class ProblemRegistry:
                 app_name="social_network", faulty_service="user-service"
             ),
             "sidecar_port_conflict_hotel_reservation": lambda: SidecarPortConflict(
+                app_name="hotel_reservation", faulty_service="frontend"
+            ),
+            "readiness_probe_misconfiguration_astronomy_shop": lambda: ReadinessProbeMisconfiguration(
+                app_name="astronomy_shop", faulty_service="frontend"
+            ),
+            "readiness_probe_misconfiguration_social_network": lambda: ReadinessProbeMisconfiguration(
+                app_name="social_network", faulty_service="user-service"
+            ),
+            "readiness_probe_misconfiguration_hotel_reservation": lambda: ReadinessProbeMisconfiguration(
                 app_name="hotel_reservation", faulty_service="frontend"
             ),
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
