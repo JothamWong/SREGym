@@ -71,7 +71,7 @@ class SocialNetwork(Application):
         if hasattr(self, "wrk"):
             self.wrk.stop()
         self.kubectl.delete_namespace(self.namespace)
-        time.sleep(10)
+        self.kubectl.wait_for_namespace_deletion(self.namespace)
 
     def create_workload(self):
         self.wrk = Wrk2WorkloadManager(
