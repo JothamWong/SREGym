@@ -19,10 +19,18 @@ class LivenessProbeMisconfiguration(Problem):
 
         if app_name == "social_network":
             self.app = SocialNetwork()
+            self.app.create_workload(duration=30)
+            
+
         elif app_name == "hotel_reservation":
             self.app = HotelReservation()
+            self.app.create_workload(duration=30)
+            
+
         elif app_name == "astronomy_shop":
             self.app = AstronomyShop()
+            self.app.create_workload()
+            
         else:
             raise ValueError(f"Unsupported app name: {app_name}")
 
@@ -33,12 +41,12 @@ class LivenessProbeMisconfiguration(Problem):
 
         self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
 
-        self.app.create_workload()
         self.mitigation_oracle = CompoundedOracle(
             self,
             MitigationOracle(problem=self),
             WorkloadOracle(problem=self, wrk_manager=self.app.wrk),
         )
+
 
     @mark_fault_injected
     def inject_fault(self):
