@@ -112,7 +112,7 @@ class ProblemRegistry:
             ),
             "liveness_probe_too_aggressive_astronomy_shop": lambda: LivenessProbeTooAggressive(
                 app_name="astronomy_shop", faulty_service="grafana"
-            )
+            ),
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.

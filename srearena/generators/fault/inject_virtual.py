@@ -649,8 +649,8 @@ class VirtualizationFaultInjector(FaultInjector):
                 probe = container.get("livenessProbe")
                 if probe:
                     probe["initialDelaySeconds"] = 1
-                    probe["periodSeconds"]       = 1
-                    probe["failureThreshold"]    = 1
+                    probe["periodSeconds"] = 1
+                    probe["failureThreshold"] = 1
 
             deployment_yaml["spec"]["template"]["spec"]["terminationGracePeriodSeconds"] = 0
 
@@ -688,7 +688,6 @@ class VirtualizationFaultInjector(FaultInjector):
             self.kubectl.wait_for_ready(self.namespace)
 
             print(f"Recovered from liveness probe too aggressive fault for service: {service}")
-
 
     ############# HELPER FUNCTIONS ################
     def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
