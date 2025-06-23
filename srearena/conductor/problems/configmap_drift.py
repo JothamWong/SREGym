@@ -45,5 +45,5 @@ class ConfigMapDrift(Problem):
 
         injector = VirtualizationFaultInjector(namespace=self.namespace)
         injector.recover_configmap_drift(microservices=[self.faulty_service])
-        
+
         print(f"Service: {self.faulty_service} | Namespace: {self.namespace}\n")
