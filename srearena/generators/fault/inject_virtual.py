@@ -636,6 +636,37 @@ class VirtualizationFaultInjector(FaultInjector):
 
             print(f"Recovered from sidecar port conflict fault for service: {service}")
 
+    def inject_env_variable_leak(self, microservices: list[str]):
+        for microservice in microservices:
+            configmap_name = f"{microservice}"  
+
+            get_cmd = f"kubectl get configmap {configmap_name} -n {self.namespace} -o yaml"
+            original_yaml = self.kubectl.exec_command(get_cmd)
+            parsed_yaml = yaml.safe_load(original_yaml)
+
+            self._write_yaml_to_file(configmap_name, parsed_yaml)
+
+            delete_cmd = f"kubectl delete configmap {configmap_name} -n {self.namespace}"
+            self.kubectl.exec_command(delete_cmd)
+            print(f"Deleted ConfigMap: {configmap_name}")
+
+            self.kubectl.exec_command(f"kubectl delete pod -l app={microservice} -n {self.namespace}")
+            print(f"Restarted pods for {microservice} to apply ConfigMap fault")
+
+    def recover_env_variable_leak(self, microservices: list[str]):
+        for microservice in microservices:
+            configmap_name = f"{microservice}"
+            backup_path = f"/tmp/{configmap_name}_modified.yaml"
+
+            apply_cmd = f"kubectl apply -f {backup_path} -n {self.namespace}"
+            self.kubectl.exec_command(apply_cmd)
+            print(f"Restored ConfigMap: {configmap_name}")
+
+            self.kubectl.exec_command(f"kubectl rollout restart deployment {microservice} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl rollout status deployment {microservice} -n {self.namespace}")
+            print(f"Deployment {microservice} restarted and should now be healthy")
+
+
     ############# HELPER FUNCTIONS ################
     def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
         for service in microservices:
