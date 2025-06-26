@@ -35,7 +35,7 @@ class Conductor:
         self.results = {}
 
     # Check for dependencies
-    def _check_required_binaries(self, binaries: list[str]):
+    def check_required_binaries(self, binaries: list[str]):
         for binary in binaries:
             if shutil.which(binary) is None:
                 raise RuntimeError(f"[❌] Required dependency '{binary}' not found. Please install {binary}.")
@@ -136,7 +136,8 @@ class Conductor:
         self.detection_oracle = DetectionOracle(self.problem)
         self.results = {}
 
-        # GPT, put code here
+        # Check for required binaries
+        self._check_required_binaries(["kubectl", "helm"])
 
         try:
             with SigintAwareSection():
