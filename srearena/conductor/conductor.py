@@ -1,6 +1,7 @@
 import asyncio
 import atexit
 import os
+import shutil
 import time
 from json.decoder import JSONDecodeError
 
@@ -32,6 +33,14 @@ class Conductor:
         self.problem_id = None
         self.submission_stage = None  # "noop", "detection", "localization", "mitigation", "done"
         self.results = {}
+
+    # Check for dependencies
+    def _check_required_binaries(self, binaries: list[str]):
+        for binary in binaries:
+            if shutil.which(binary) is None:
+                raise RuntimeError(
+                    f"[❌] Required dependency '{binary}' not found in $PATH. " f"Please install {binary}."
+                )
 
     def register_agent(self, agent, name="agent"):
         self.agent = agent
@@ -128,6 +137,8 @@ class Conductor:
         self.problem = self.problems.get_problem_instance(self.problem_id)
         self.detection_oracle = DetectionOracle(self.problem)
         self.results = {}
+
+        # GPT, put code here
 
         try:
             with SigintAwareSection():
