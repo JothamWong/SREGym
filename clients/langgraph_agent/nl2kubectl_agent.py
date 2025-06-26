@@ -201,30 +201,3 @@ class NL2KubectlAgent:
             stream_mode="values",
         ):
             event["messages"][-1].pretty_print()
-
-
-async def main():
-    from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
-
-    stateful_tool_url = ""
-    transport = SSETransport(
-        url=stateful_tool_url
-    )
-    client = Client(transport)
-    llm = get_llm_backend_for_tools()
-
-    agent = NL2KubectlAgent(llm, client)
-    agent.build_agent()
-    # keep the connection for the whole conversation
-    async with client:
-        while True:
-            user_input = input("User: ")
-            if user_input.lower() in ["quit", "exit", "q"]:
-                print("Goodbye!")
-                break
-            agent.graph_step(user_input)
-
-
-# a short chatbot loop to demonstrate the workflow.
-if __name__ == "__main__":
-    asyncio.run(main())
