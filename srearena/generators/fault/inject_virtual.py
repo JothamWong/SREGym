@@ -643,7 +643,7 @@ class VirtualizationFaultInjector(FaultInjector):
         for service in microservices:
 
             script_path = Path(__file__).parent / "custom" / f"slow_service.py"
-            self.deploy_service(service, script_path)
+            self.deploy_custom_service(service, script_path)
 
             deployment_yaml = self._get_deployment_yaml(service)
             original_deployment_yaml = copy.deepcopy(deployment_yaml)
