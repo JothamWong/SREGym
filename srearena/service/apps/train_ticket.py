@@ -1,8 +1,8 @@
 """Interface to the Train Ticket application"""
 
-import time
-import tempfile
 import os
+import tempfile
+import time
 from pathlib import Path
 
 from srearena.paths import TARGET_MICROSERVICES, TRAIN_TICKET_METADATA
@@ -30,18 +30,18 @@ class TrainTicket(Application):
         if self.namespace:
             self.kubectl.create_namespace_if_not_exist(self.namespace)
 
-        self._deploy_flagd_infrastructure()
-        self._deploy_locust()
-
         Helm.install(**self.helm_configs)
         Helm.assert_if_deployed(self.helm_configs["namespace"])
+
+        self._deploy_flagd_infrastructure()
+        self._deploy_locust()
 
     def delete(self):
         """Delete the Helm configurations."""
         # Helm.uninstall(**self.helm_configs) # Don't helm uninstall until cleanup job is fixed on train-ticket
         if self.namespace:
             self.kubectl.delete_namespace(self.namespace)
-        time.sleep(30)
+        self.kubectl.wait_for_namespace_deletion(self.namespace)
 
     def cleanup(self):
         # Helm.uninstall(**self.helm_configs)
@@ -52,18 +52,15 @@ class TrainTicket(Application):
         """Start TrainTicket workload using Locust."""
         try:
             from srearena.generators.workload.trainticket_locust import TrainTicketLocustWorkloadManager
-            
+
             if not self.workload_manager:
-                self.workload_manager = TrainTicketLocustWorkloadManager(
-                    namespace=self.namespace,
-                    kubectl=self.kubectl
-                )
-            
+                self.workload_manager = TrainTicketLocustWorkloadManager(namespace=self.namespace, kubectl=self.kubectl)
+
             self.workload_manager.start()
             # Trigger F1 scenario with moderate load
             self.workload_manager.trigger_f1_scenario(user_count=5, spawn_rate=1)
             print("[TrainTicket] Workload started - F1 scenario active")
-            
+
         except Exception as e:
             print(f"[TrainTicket] Warning: Failed to start workload: {e}")
 
@@ -99,26 +96,26 @@ class TrainTicket(Application):
         try:
             # Update path to use srearena/resources instead of aiopslab-applications
             locust_resources_path = Path(__file__).parent.parent.parent / "resources" / "trainticket"
-            
+
             # Apply Locust configurations
             for file in ["locust-configmap.yaml", "locust-deployment.yaml"]:
                 yaml_path = locust_resources_path / file
                 if yaml_path.exists():
                     # Need to process the template first
-                    with open(yaml_path, 'r') as f:
+                    with open(yaml_path, "r") as f:
                         content = f.read()
                     # Replace {{ .Values.namespace }} with actual namespace
-                    content = content.replace('{{ .Values.namespace }}', self.namespace)
-                    
+                    content = content.replace("{{ .Values.namespace }}", self.namespace)
+
                     # Write to temp file and apply
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp:
                         tmp.write(content)
                         temp_path = tmp.name
-                    
+
                     result = self.kubectl.exec_command(f"kubectl apply -f {temp_path}")
                     os.unlink(temp_path)
                     print(f"[TrainTicket] Applied {file}: {result}")
-                    
+
             print("[TrainTicket] Locust workload generator deployed")
         except Exception as e:
             print(f"[TrainTicket] Warning: Failed to deploy Locust: {e}")
