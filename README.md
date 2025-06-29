@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>A Unified Benchmark Framework for Evaluating SRE Agents</h1>
+<h1>A Unified Framework for Benchmarking SRE Agents</h1>
 
 <!-- [🤖Overview](#🤖overview) |  -->
 [🚀Quick Start](#🚀quickstart) | 
