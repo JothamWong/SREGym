@@ -948,7 +948,7 @@ class VirtualizationFaultInjector(FaultInjector):
         for service in microservices:
 
             deployment_yaml = self._get_deployment_yaml(service)
-            original_yaml = copy.deepcopy(deployment_yaml)
+            # original_yaml = copy.deepcopy(deployment_yaml)
 
             # Create a single PVC that every replica will try to use
             pvc_name = f"{service}-pvc"
@@ -1008,8 +1008,11 @@ class VirtualizationFaultInjector(FaultInjector):
 
             yaml_path = self._write_yaml_to_file(service, deployment_yaml)
 
-            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
-            self.kubectl.exec_command(f"kubectl apply -f {yaml_path} -n {self.namespace}")
+            delete_result = self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            print(f"Delete result for {service}: {delete_result}")
+
+            apply_result = self.kubectl.exec_command(f"kubectl apply -f {yaml_path} -n {self.namespace}")
+            print(f"Apply result for {service}: {apply_result}")
 
             print(
                 f"Injected Duplicate PVC Mounts fault for {service}: replicas={deployment_yaml['spec']['replicas']}, shared PVC={pvc_name}"
@@ -1020,7 +1023,8 @@ class VirtualizationFaultInjector(FaultInjector):
 
             deployment_yaml = self._get_deployment_yaml(service)
 
-            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            delete_result = self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            print(f"Delete result for {service}: {delete_result}")
 
             template = deployment_yaml["spec"]["template"]
             replicas = max(deployment_yaml["spec"].get("replicas", 1), 2)
@@ -1062,7 +1066,8 @@ class VirtualizationFaultInjector(FaultInjector):
             }
 
             ss_path = self._write_yaml_to_file(service, statefulset_yaml)
-            self.kubectl.exec_command(f"kubectl apply -f {ss_path} -n {self.namespace}")
+            apply_result = self.kubectl.exec_command(f"kubectl apply -f {ss_path} -n {self.namespace}")
+            print(f"Apply result for {service}: {apply_result}")
 
             self.kubectl.exec_command(
                 f"kubectl rollout status statefulset/{service} -n {self.namespace} --timeout=120s"

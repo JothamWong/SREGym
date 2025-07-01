@@ -155,7 +155,7 @@ class ProblemRegistry:
                 app_name="astronomy_shop", faulty_service="frontend"
             ),
             "duplicate_pvc_mounts_social_network": lambda: DuplicatePVCMounts(
-                app_name="social_network", faulty_service="media-frontend"
+                app_name="social_network", faulty_service="jaeger"
             ),
             "duplicate_pvc_mounts_hotel_reservation": lambda: DuplicatePVCMounts(
                 app_name="hotel_reservation", faulty_service="frontend"
