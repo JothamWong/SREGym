@@ -943,6 +943,159 @@ class VirtualizationFaultInjector(FaultInjector):
 
             print(f"Recovered from liveness probe misconfiguration fault for service: {service}")
 
+    # Duplicate PVC mounts: multiple replicas share ReadWriteOnce PVC causing mount conflict
+    def inject_duplicate_pvc_mounts(self, microservices: list[str]):
+        """Force multiple replicas of a *Deployment* to share the **same** ReadWriteOnce PVC so that the
+        second pod becomes stuck in Pending / ContainerCreating. This reproduces the duplicate-mount fault.
+        """
+        for service in microservices:
+
+            # 1. Fetch current Deployment manifest
+            deployment_yaml = self._get_deployment_yaml(service)
+            original_yaml = copy.deepcopy(deployment_yaml)
+
+            # 2. Create a single PVC that every replica will try to use
+            pvc_name = f"{service}-pvc"
+            pvc_manifest = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {
+                    "name": pvc_name,
+                    "namespace": self.namespace
+                },
+                "spec": {
+                    "accessModes": ["ReadWriteOnce"],
+                    "resources": {
+                        "requests": {
+                            "storage": "1Gi"
+                        }
+                    }
+                }
+            }
+        
+            # Apply the PVC
+            pvc_json = json.dumps(pvc_manifest)
+            self.kubectl.exec_command(f"kubectl apply -f - <<EOF\n{pvc_json}\nEOF")
+
+
+            print(f"Created PVC {pvc_name} for fault injection")
+
+            # 3. Patch the pod template so **all** replicas mount that same claim
+            pod_spec = deployment_yaml.get("spec", {}).get("template", {}).get("spec", {})
+
+            # Add the shared volume
+            if "volumes" not in pod_spec:
+                pod_spec["volumes"] = []
+            pod_spec["volumes"].append({
+                "name": f"{service}-volume",
+                "persistentVolumeClaim": {"claimName": pvc_name},
+            })
+
+            # Mount the volume in the first container
+            containers = pod_spec.get("containers", [])
+            if containers:
+                if "volumeMounts" not in containers[0]:
+                    containers[0]["volumeMounts"] = []
+                containers[0]["volumeMounts"].append({
+                    "name": f"{service}-volume",
+                    "mountPath": f"/{service}-data",
+                })
+
+            # 4. Add podAntiAffinity so replicas land on different nodes (required for the RWO conflict)
+            if "affinity" not in pod_spec:
+                pod_spec["affinity"] = {}
+
+            label_key = next(iter(deployment_yaml["spec"]["selector"]["matchLabels"]))
+            label_val = deployment_yaml["spec"]["selector"]["matchLabels"][label_key]
+
+            pod_spec["affinity"]["podAntiAffinity"] = {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                    {
+                        "labelSelector": {
+                            "matchExpressions": [
+                                {"key": label_key, "operator": "In", "values": [label_val]}
+                            ]
+                        },
+                        "topologyKey": "kubernetes.io/hostname",
+                    }
+                ]
+            }
+
+            # 5. Ensure at least two replicas
+            deployment_yaml["spec"]["replicas"] = max(deployment_yaml["spec"].get("replicas", 1), 2)
+
+            # 6. Apply the modified Deployment
+            yaml_path = self._write_yaml_to_file(service, deployment_yaml)
+
+            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl apply -f {yaml_path} -n {self.namespace}")
+
+            # 7. Save the original manifest for completeness (not used, but handy)
+            self._write_yaml_to_file(f"{service}-original", original_yaml)
+
+            print(f"Injected Duplicate PVC Mounts fault for {service}: replicas={deployment_yaml['spec']['replicas']}, shared PVC={pvc_name}")
+
+    def recover_duplicate_pvc_mounts(self, microservices: list[str]):
+        for service in microservices:
+
+            deployment_yaml = self._get_deployment_yaml(service)
+            
+            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+
+            template = deployment_yaml["spec"]["template"]
+            replicas = max(deployment_yaml["spec"].get("replicas", 1), 2)
+            selector = deployment_yaml["spec"]["selector"]
+
+            pod_spec = template["spec"]
+            pod_spec["volumes"] = []
+
+            if pod_spec.get("containers"):
+                if "volumeMounts" not in pod_spec["containers"][0]:
+                    pod_spec["containers"][0]["volumeMounts"] = []
+
+                pod_spec["containers"][0]["volumeMounts"] = [
+                    {
+                        "name": "data-volume",
+                        "mountPath": f"/{service}-data"
+                    }
+                ]
+
+            statefulset_yaml = {
+                "apiVersion": "apps/v1",
+                "kind": "StatefulSet",
+                "metadata": {
+                    "name": service,
+                    "namespace": self.namespace,
+                    "labels": deployment_yaml.get("metadata", {}).get("labels", {})
+                },
+                "spec": {
+                    "serviceName": service,
+                    "replicas": replicas,
+                    "selector": selector,
+                    "template": template,
+                    "volumeClaimTemplates": [
+                        {
+                            "metadata": {
+                                "name": "data-volume",
+                                "namespace": self.namespace
+                            },
+                            "spec": {
+                                "accessModes": ["ReadWriteOnce"],
+                                "resources": {"requests": {"storage": "1Gi"}},
+                            }
+                        }
+                    ]
+                }
+            }
+
+            ss_path = self._write_yaml_to_file(service, statefulset_yaml)
+            self.kubectl.exec_command(f"kubectl apply -f {ss_path} -n {self.namespace}")
+
+            self.kubectl.exec_command(
+                f"kubectl rollout status statefulset/{service} -n {self.namespace} --timeout=120s")
+
+            print(f"Converted {service} to StatefulSet with unique PVC per replica and scaled to {replicas}")
+    
     ############# HELPER FUNCTIONS ################
     def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
         for service in microservices:

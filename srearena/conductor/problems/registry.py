@@ -36,6 +36,7 @@ from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
 from srearena.conductor.problems.taint_no_toleration import TaintNoToleration
+from srearena.conductor.problems.duplicate_pvc_mounts import DuplicatePVCMounts
 
 
 class ProblemRegistry:
@@ -149,6 +150,15 @@ class ProblemRegistry:
             ),
             "liveness_probe_too_aggressive_hotel_reservation": lambda: LivenessProbeTooAggressive(
                 app_name="hotel_reservation"
+            ),
+            "duplicate_pvc_mounts_astronomy_shop": lambda: DuplicatePVCMounts(
+                app_name="astronomy_shop", faulty_service="cart"
+            ),
+            "duplicate_pvc_mounts_social_network": lambda: DuplicatePVCMounts(
+                app_name="social_network", faulty_service="media-mongodb"
+            ),
+            "duplicate_pvc_mounts_hotel_reservation": lambda: DuplicatePVCMounts(
+                app_name="hotel_reservation", faulty_service="mongodb-rate"
             ),
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
