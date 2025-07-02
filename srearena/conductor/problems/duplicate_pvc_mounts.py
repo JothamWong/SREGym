@@ -1,6 +1,6 @@
 from srearena.conductor.oracles.compound import CompoundedOracle
 from srearena.conductor.oracles.localization import LocalizationOracle
-from srearena.conductor.oracles.sustained_readiness import SustainedReadinessOracle
+from srearena.conductor.oracles.mitigation import MitigationOracle
 from srearena.conductor.oracles.workload import WorkloadOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_virtual import VirtualizationFaultInjector
@@ -31,13 +31,9 @@ class DuplicatePVCMounts(Problem):
         self.namespace = self.app.namespace
 
         self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
+        self.mitigation_oracle = MitigationOracle()
 
         self.app.create_workload()
-        self.mitigation_oracle = CompoundedOracle(
-            self,
-            SustainedReadinessOracle(problem=self, buffer_period=20, sustained_period=30),
-            WorkloadOracle(problem=self, wrk_manager=self.app.wrk),
-        )
 
     @mark_fault_injected
     def inject_fault(self):
