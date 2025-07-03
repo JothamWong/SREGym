@@ -3,6 +3,7 @@ from kubernetes import client, config
 from srearena.conductor.oracles.detection import DetectionOracle
 from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.oracles.mitigation import MitigationOracle
+from srearena.conductor.oracles.network_policy_oracle import NetworkPolicyDetectionOracle  # NEW IMPORT
 from srearena.conductor.problems.base import Problem
 from srearena.paths import TARGET_MICROSERVICES
 from srearena.service.apps.hotelres import HotelReservation
@@ -24,7 +25,12 @@ class NetworkPolicyBlock(Problem):
 
         super().__init__(app=self.app, namespace=self.app.namespace)
         self.networking_v1 = client.NetworkingV1Api()
-
+        
+        self.detection_oracle = NetworkPolicyDetectionOracle(
+            problem=self, 
+            expected_blocked_services=[self.faulty_service]
+        )
+        
         self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
         self.mitigation_oracle = MitigationOracle(problem=self)
 
