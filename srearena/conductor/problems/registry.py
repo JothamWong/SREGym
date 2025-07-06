@@ -37,6 +37,9 @@ from srearena.conductor.problems.target_port import K8STargetPortMisconfig
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
+from srearena.conductor.problems.network_policy_block import NetworkPolicyBlock
+from srearena.conductor.problems.taint_no_toleration import TaintNoToleration
+
 
 
 class ProblemRegistry:
@@ -141,6 +144,9 @@ class ProblemRegistry:
             ),
             "liveness_probe_misconfiguration_hotel_reservation": lambda: LivenessProbeMisconfiguration(
                 app_name="hotel_reservation", faulty_service="recommendation"
+            ),
+            "network_policy_block": lambda: NetworkPolicyBlock(
+                faulty_service="payment-service"
             ),
             "liveness_probe_too_aggressive_astronomy_shop": lambda: LivenessProbeTooAggressive(
                 app_name="astronomy_shop"
