@@ -11,6 +11,7 @@ from langgraph.types import Command
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.client.sse import sse_client
 
+from clients.configs.langgraph_tool_configs import langToolCfg
 from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
 from clients.langgraph_agent.tools.text_editing.flake8_utils import flake8, format_flake8_output  # type: ignore
 from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: ignore
@@ -47,7 +48,7 @@ async def get_traces(
     server_name = "observability"
     if USE_HTTP:
         logger.info("Using HTTP, connecting to server.")
-        server_url = "http://127.0.0.1:8000/observability/sse"
+        server_url = langToolCfg.mcp_observability
         http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
         session = await exit_stack.enter_async_context(ClientSession(*http_transport))
     else:
@@ -167,7 +168,7 @@ async def get_services(
     server_name = "observability"
     if USE_HTTP:
         logger.info("Using HTTP, connecting to server.")
-        server_url = "http://127.0.0.1:8000/observability/sse"
+        server_url = langToolCfg.mcp_observability
         http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
         session = await exit_stack.enter_async_context(ClientSession(*http_transport))
     else:
@@ -225,7 +226,7 @@ async def get_operations(
     server_name = "observability"
     if USE_HTTP:
         logger.info("Using HTTP, connecting to server.")
-        server_url = "http://127.0.0.1:8000/observability/sse"
+        server_url = langToolCfg.mcp_observability
         http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
         session = await exit_stack.enter_async_context(ClientSession(*http_transport))
     else:

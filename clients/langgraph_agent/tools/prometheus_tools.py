@@ -11,6 +11,7 @@ from langgraph.types import Command
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.client.sse import sse_client
 
+from clients.configs.langgraph_tool_configs import langToolCfg
 from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
 from clients.langgraph_agent.tools.text_editing.flake8_utils import flake8, format_flake8_output  # type: ignore
 from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: ignore
@@ -49,7 +50,7 @@ async def get_metrics(
     if USE_HTTP:
         logger.info("Using HTTP, connecting to server.")
         # server_url = "http://127.0.0.1:9953/sse"
-        server_url = "http://127.0.0.1:8000/prometheus/sse"
+        server_url = langToolCfg.mcp_prometheus
         # Register both the SSE client and session with an async exit stack so they will automatically clean up when
         # you're done (e.g. close connections properly
 
