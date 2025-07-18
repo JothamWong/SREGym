@@ -29,12 +29,8 @@ def get_metrics(query: str) -> str:
         response = observability_client.make_request("GET", url, params=param)
         logger.info(f"[prom_mcp] get_metrics status code: {response.status_code}")
         logger.info(f"[prom_mcp] get_metrics result: {response}")
-        metrics = response.json()["data"]
-        assert type(metrics) == dict, f"The type of the returned result should be list but get {type(metrics)}."
-        if len(metrics) > 0:
-            return metrics
-        else:
-            return "The result of your query is empty. Please recheck the parameters you use."
+        metrics = str(response.json()["data"])
+        return metrics if metrics else "None"
     except Exception as e:
         err_str = f"[prom_mcp] Error querying get_metrics: {str(e)}"
         logger.error(err_str)

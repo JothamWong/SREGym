@@ -34,12 +34,8 @@ def get_services() -> str:
         logger.info(f"[ob_mcp] get_services status code: {response.status_code}")
         logger.info(f"[ob_mcp] get_services result: {response}")
         logger.info(f"[ob_mcp] result: {response.json()}")
-        services = response.json()["data"]
-        assert type(services) == list, f"The type of the returned result should be list but get {type(services)}."
-        if len(services) > 0:
-            return services
-        else:
-            return "The result of your query is empty. Please recheck the parameters you use."
+        services = str(response.json()["data"])
+        return services if services else "None"
     except Exception as e:
         err_str = f"[ob_mcp] Error querying get_services: {str(e)}"
         logger.error(err_str)
@@ -63,12 +59,8 @@ def get_operations(service: str) -> str:
         params = {"service": service}
         response = observability_client.make_request("GET", url, params=params)
         logger.info(f"[ob_mcp] get_operations: {response.status_code}")
-        operations = response.json()["data"]
-        assert type(operations) == list, f"The type of the returned result should be list but get {type(operations)}."
-        if len(operations) > 0:
-            return operations
-        else:
-            return "The result of your query is empty. Please recheck the parameters you use."
+        operations = str(response.json()["data"])
+        return operations if operations else "None"
     except Exception as e:
         err_str = f"[ob_mcp] Error querying get_operations: {str(e)}"
         logger.error(err_str)
@@ -102,12 +94,8 @@ def get_traces(service: str, last_n_minutes: int) -> str:
         }
         response = observability_client.make_request("GET", url, params=params)
         logger.info(f"[ob_mcp] get_traces: {response.status_code}")
-        traces = response.json()["data"]
-        assert type(traces) == list, f"The type of the returned result should be list but get {type(traces)}."
-        if len(traces) > 0:
-            return traces
-        else:
-            return "The result of your query is empty. Please recheck the parameters you use."
+        traces = str(response.json()["data"])
+        return traces if traces else "None"
     except Exception as e:
         err_str = f"[ob_mcp] Error querying get_traces: {str(e)}"
         logger.error(err_str)
