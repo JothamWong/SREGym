@@ -65,7 +65,7 @@ class BaseAgent:
     def check_if_summaries_needed(self, state: State):
         """ Check if summaries are needed based on the number of messages."""
         messages = state["messages"]
-        tool_calls = state["tool_calling_times"]
+        tool_calls = state["num_rounds"]
 
         logger.info("Checking if summaries are needed, current messages: %s", messages)
         logger.info("Number of tool calls: %d", tool_calls)
@@ -192,6 +192,7 @@ Conversation:
         self.graph_builder.add_node("tool_agent", self.llm_tool_call_step)
         self.graph_builder.add_node("tool_node", tool_node)
         self.graph_builder.add_node("post_tool_hook", self.post_tool_hook)
+        self.graph_builder.add_node("summarize_messages", self.summarize_messages)
 
         self.graph_builder.add_edge(START, "explanation_agent")
         self.graph_builder.add_edge("explanation_agent", "tool_agent")
@@ -199,19 +200,19 @@ Conversation:
         self.graph_builder.add_edge("tool_node", "post_tool_hook")
 
         self.graph_builder.add_conditional_edges(
-        "agent",
+        "explanation_agent",
         self.check_if_summaries_needed,  # This must return True or False
         {
             True: "summarize_messages",
             False: "tool_node",
         }
     )
-        self.graph_builder.add_edge("summarize_messages", "agent")
+        self.graph_builder.add_edge("summarize_messages", "explanation_agent")
 
         self.graph_builder.add_conditional_edges(
             "post_tool_hook",
             self.post_tool_route,
-            {"agent": "explanation_agent", END: END},
+            {"explanation_agent": "explanation_agent", END: END},
         )
         
         self.graph = self.graph_builder.compile()
