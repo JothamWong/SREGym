@@ -147,6 +147,41 @@ class ApplicationFaultInjector(FaultInjector):
                         container.image = f"yinfangchen/hotelreservation:latest"
                 self.kubectl.update_deployment(service, self.namespace, deployment)
 
+    # A4. valkey_auth_disruption: Invalidate the password in valkey so dependent services cannot work
+    def inject_valkey_auth_disruption(self, target_service="cartservice"):
+        pods = self.kubectl.list_pods(self.namespace)
+        valkey_pods = [p.metadata.name for p in pods.items if "valkey-cart" in p.metadata.name]
+        if not valkey_pods:
+            print("[❌] No Valkey pod found!")
+            return
+
+        valkey_pod = valkey_pods[0]
+        print(f"[🔐] Found Valkey pod: {valkey_pod}")
+        command = f"kubectl exec -n {self.namespace} {valkey_pod} -- valkey-cli CONFIG SET requirepass 'invalid_pass'"
+        result = self.kubectl.exec_command(command)
+        print(f"[⚠️] Injection result: {result}")
+
+        # Restart cartservice to force it to re-authenticate
+        self.kubectl.exec_command(f"kubectl delete pod -l app.kubernetes.io/name={target_service} -n {self.namespace}")
+        time.sleep(3)
+
+    def recover_valkey_auth_disruption(self, target_service="cartservice"):
+        pods = self.kubectl.list_pods(self.namespace)
+        valkey_pods = [p.metadata.name for p in pods.items if "valkey-cart" in p.metadata.name]
+        if not valkey_pods:
+            print("[❌] No Valkey pod found for recovery!")
+            return
+
+        valkey_pod = valkey_pods[0]
+        print(f"[🔓] Found Valkey pod: {valkey_pod}")
+        command = f"kubectl exec -n {self.namespace} {valkey_pod} -- valkey-cli CONFIG SET requirepass ''"
+        result = self.kubectl.exec_command(command)
+        print(f"[✅] Recovery result: {result}")
+
+        # Restart cartservice to restore normal behavior
+        self.kubectl.exec_command(f"kubectl delete pod -l app.kubernetes.io/name={target_service} -n {self.namespace}")
+        time.sleep(3)
+
 
 if __name__ == "__main__":
     namespace = "test-hotel-reservation"
