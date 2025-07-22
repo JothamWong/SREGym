@@ -263,6 +263,96 @@ class ApplicationFaultInjector(FaultInjector):
         except Exception as e:
             print(f"Error deleting job: {e}")
 
+    # A.5 incorrect_port_assignment: Update an env var to use the wrong port value
+    def inject_incorrect_port_assignment(
+        self, deployment_name: str, component_label: str, env_var: str, incorrect_port: str = "8082"
+    ):
+        """
+        Patch the deployment to modify a specific environment variable (e.g., PRODUCT_CATALOG_SERVICE_ADDR)
+        to an incorrect port (e.g., 8082 instead of 8080).
+        """
+        # Fetch current deployment
+        deployment = self.kubectl.get_deployment(deployment_name, self.namespace)
+        container = deployment.spec.template.spec.containers[0]
+        container_name = container.name
+        current_env = container.env
+
+        # Modify the target env var
+        updated_env = []
+        found = False
+        for e in current_env:
+            if e.name == env_var:
+                updated_env.append(client.V1EnvVar(name=env_var, value=f"{e.value.split(':')[0]}:{incorrect_port}"))
+                found = True
+            else:
+                updated_env.append(e)
+
+        if not found:
+            raise ValueError(f"Environment variable '{env_var}' not found in deployment '{deployment_name}'")
+
+        # Create patch body
+        patch_body = {
+            "spec": {
+                "template": {
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": container_name,
+                                "env": [{"name": var.name, "value": var.value} for var in updated_env],
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        self.kubectl.patch_deployment(deployment_name, self.namespace, patch_body)
+        print(f"Injected incorrect port assignment in {env_var} of {deployment_name}.")
+
+    def recover_incorrect_port_assignment(self, deployment_name: str, env_var: str, correct_port: str = "8080"):
+        """
+        Revert the previously patched environment variable (e.g., PRODUCT_CATALOG_SERVICE_ADDR)
+        to use the correct port (e.g., 8080).
+        """
+        # Fetch current deployment
+        deployment = self.kubectl.get_deployment(deployment_name, self.namespace)
+        container = deployment.spec.template.spec.containers[0]
+        container_name = container.name
+        current_env = container.env
+
+        # Revert the target env var
+        updated_env = []
+        found = False
+        for e in current_env:
+            if e.name == env_var:
+                base_host = e.value.split(":")[0]
+                updated_env.append(client.V1EnvVar(name=env_var, value=f"{base_host}:{correct_port}"))
+                found = True
+            else:
+                updated_env.append(e)
+
+        if not found:
+            raise ValueError(f"Environment variable '{env_var}' not found in deployment '{deployment_name}'")
+
+        # Create patch body
+        patch_body = {
+            "spec": {
+                "template": {
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": container_name,
+                                "env": [{"name": var.name, "value": var.value} for var in updated_env],
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        self.kubectl.patch_deployment(deployment_name, self.namespace, patch_body)
+        print(f"Recovered {env_var} in {deployment_name} to use port {correct_port}.")
+
 
 if __name__ == "__main__":
     namespace = "test-hotel-reservation"
