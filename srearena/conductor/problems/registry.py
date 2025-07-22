@@ -19,6 +19,7 @@ from srearena.conductor.problems.kafka_queue_problems import KafkaQueueProblems
 from srearena.conductor.problems.liveness_probe_misconfiguration import LivenessProbeMisconfiguration
 from srearena.conductor.problems.liveness_probe_too_aggressive import LivenessProbeTooAggressive
 from srearena.conductor.problems.loadgenerator_flood_homepage import LoadGeneratorFloodHomepage
+from srearena.conductor.problems.memory_stress import ChaosMeshMemoryStress
 from srearena.conductor.problems.misconfig_app import MisconfigAppHotelRes
 from srearena.conductor.problems.missing_service import MissingService
 from srearena.conductor.problems.network_delay import ChaosMeshNetworkDelay
@@ -189,6 +190,7 @@ class ProblemRegistry:
             "chaos_mesh_cpu_stress": ChaosMeshCPUStress,
             "chaos_mesh_jvm_stress": ChaosMeshJVMHeapStress,
             "chaos_mesh_jvm_return": ChaosMeshJVMReturnFault,
+            "chaos_mesh_memory_stress": ChaosMeshMemoryStress,
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
