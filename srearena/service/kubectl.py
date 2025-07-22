@@ -381,6 +381,21 @@ class KubeCtl:
             value /= 1024
         return f"{round(value, 2)}Ei"
 
+    def get_matching_replicasets(self, namespace: str, deployment_name: str) -> list[client.V1ReplicaSet]:
+        apps_v1 = self.apps_v1_api
+        rs_list = apps_v1.list_namespaced_replica_set(namespace)
+        matching_rs = []
+
+        for rs in rs_list.items:
+            owner_refs = rs.metadata.owner_references
+            if owner_refs:
+                for owner in owner_refs:
+                    if owner.kind == "Deployment" and owner.name == deployment_name:
+                        matching_rs.append(rs)
+                        break
+
+        return matching_rs
+
 
 # Example usage:
 if __name__ == "__main__":
