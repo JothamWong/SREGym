@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, AIMessage
 from langchain_core.tools import BaseTool
 from langgraph.types import Command
 
@@ -21,7 +21,12 @@ class StratusToolNode:
             message = messages[-1]
         else:
             raise ValueError("No message found in input")
-
+        if not isinstance(message, AIMessage):
+            logger.warning("Last message is not an AIMessage; skipping tool invocation.")
+            return Command(update={"messages": []})
+        if not getattr(message, "tool_calls", None):
+             logger.warning("AIMessage does not contain tool_calls.")
+             return Command(update={"messages": []})
         to_update = dict()
         new_messages = []
         for tool_call in message.tool_calls:

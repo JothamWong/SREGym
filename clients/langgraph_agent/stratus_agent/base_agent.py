@@ -5,7 +5,7 @@ from langgraph.constants import END
 from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
-
+from langgraph.types import Command
 import os
 from collections import Counter
 
@@ -60,7 +60,7 @@ class BaseAgent:
         if state["num_rounds"] > self.max_round or state["submitted"]:
             return END
         else:
-            return "agent"
+            return "explanation_agent"
     
     def check_if_summaries_needed(self, state: State):
         """ Check if summaries are needed based on the number of messages."""
@@ -75,8 +75,6 @@ class BaseAgent:
             return True
         else:
             logger.info("No summaries needed")
-
-
             return False
    
     
@@ -95,7 +93,7 @@ class BaseAgent:
             return formatted
         
 
-            return type_counts
+            
         logger.info("Summarizing messages: %s", messages)
         # Count the number of messages of each type
         formatted_history = format_messages(messages)
@@ -127,7 +125,7 @@ Conversation:
         for msg in reversed(messages):
             if isinstance(msg, AIMessage) and not msg.additional_kwargs.get("is_summary", False):
                 answer = msg.content.strip()
-            break
+                break
         # Format the summary content
         lines = summary_content.strip().split("\n")
         formatted_summary_lines = []
@@ -143,17 +141,19 @@ Conversation:
 # Append the actual last AI answer at the end
         formatted_summary = "\n".join(formatted_summary_lines + [f"\nAnswer: {answer}"])
     
-        summary_message = HumanMessage(
+        summary_message = AIMessage(
             content=formatted_summary,
             additional_kwargs={"is_summary": True})             
         logger.info("Produced Summary: %s", formatted_summary)
         new_messages = state["messages"] + [summary_message] 
-        return {
-        "messages": new_messages,
+        return Command(
+            update={
+            "messages": new_messages,
         "curr_file": state["curr_file"],
         "curr_line": state["curr_line"],
         "workdir": state["workdir"],
     }
+)
 
     def post_tool_hook(self, state: State):
         """Post-tool hook."""
@@ -199,22 +199,30 @@ Conversation:
         self.graph_builder.add_edge("tool_agent", "tool_node")
         self.graph_builder.add_edge("tool_node", "post_tool_hook")
 
+    #     self.graph_builder.add_conditional_edges(
+    #     "explanation_agent",
+    #     self.check_if_summaries_needed,  # This must return True or False
+    #     {
+    #         True: "summarize_messages",
+    #         False: "tool_node",
+    #     }
+    # )
+        # self.graph_builder.add_edge("summarize_messages", "explanation_agent")
         self.graph_builder.add_conditional_edges(
-        "explanation_agent",
-        self.check_if_summaries_needed,  # This must return True or False
-        {
-            True: "summarize_messages",
-            False: "tool_node",
-        }
-    )
-        self.graph_builder.add_edge("summarize_messages", "explanation_agent")
-
+    "tool_node",
+    self.check_if_summaries_needed,  # should return True or False
+    {
+        True: "summarize_messages",
+        False: "post_tool_hook"
+    }
+)
         self.graph_builder.add_conditional_edges(
             "post_tool_hook",
             self.post_tool_route,
             {"explanation_agent": "explanation_agent", END: END},
         )
-        
+        self.graph_builder.add_edge("summarize_messages", "post_tool_hook")
+
         self.graph = self.graph_builder.compile()
 
     def get_init_prompts(self, app_summary):
