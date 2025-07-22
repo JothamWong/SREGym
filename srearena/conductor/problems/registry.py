@@ -25,6 +25,7 @@ from srearena.conductor.problems.loadgenerator_flood_homepage import LoadGenerat
 from srearena.conductor.problems.memory_stress import ChaosMeshMemoryStress
 from srearena.conductor.problems.misconfig_app import MisconfigAppHotelRes
 from srearena.conductor.problems.missing_service import MissingService
+from srearena.conductor.problems.namespace_memory_limit import NamespaceMemoryLimit
 from srearena.conductor.problems.network_delay import ChaosMeshNetworkDelay
 from srearena.conductor.problems.network_loss import ChaosMeshNetworkLoss
 from srearena.conductor.problems.network_partition import ChaosMeshNetworkPartition
@@ -197,6 +198,7 @@ class ProblemRegistry:
             "chaos_mesh_http_post_tamper": ChaosMeshHttpPostTamper,
             "incorrect_port_assignment": IncorrectPortAssignment,
             "incorrect_image": IncorrectImage,
+            "namespace_memory_limit": NamespaceMemoryLimit,
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
