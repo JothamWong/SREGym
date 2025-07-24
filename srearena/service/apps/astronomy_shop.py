@@ -29,10 +29,18 @@ class AstronomyShop(Application):
             "open-telemetry",
             "https://open-telemetry.github.io/opentelemetry-helm-charts",
         )
-        Helm.install(**self.helm_configs)
+        
+        helm_configs = self.helm_configs.copy()
+        helm_configs["extra_args"] = self._get_load_generator_env_overrides()
+        
+        Helm.install(**helm_configs)
         Helm.assert_if_deployed(self.helm_configs["namespace"])
 
-        self._set_load_generator_env()
+    def _get_load_generator_env_overrides(self):
+        return [
+            "--set-string", "components.load-generator.envOverrides[0].name=LOCUST_BROWSER_TRAFFIC_ENABLED",
+            "--set-string", "components.load-generator.envOverrides[0].value=false"
+        ]
 
     def delete(self):
         """Delete the Helm configurations."""
@@ -57,22 +65,6 @@ class AstronomyShop(Application):
         if not hasattr(self, "wrk"):
             self.create_workload()
         self.wrk.start()
-
-    def _set_load_generator_env(self):
-        try:
-            self.kubectl.exec_command(
-                f"kubectl set env deployment/load-generator -n {self.namespace} "
-                f"LOCUST_BROWSER_TRAFFIC_ENABLED=false"
-            )
-
-            self.kubectl.exec_command(
-                f"kubectl rollout status deployment/load-generator -n {self.namespace}"
-            )
-            print("Load-generator deployment is ready with updated environment variables")
-            
-        except Exception as e:
-            print(f"Warning: Failed to set environment variable for load-generator deployment: {e}")
-            print("The load generator will use default environment variables")
 
 
 # Run this code to test installation/deletion
