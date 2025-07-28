@@ -96,11 +96,7 @@ except KeyError:
     WATSONX_API_BASE = "https://us-south.ml.cloud.ibm.com"
     print(f"Unable to find environment variable - WATSONX_API_BASE. Setting to {WATSONX_API_BASE}.")
 
-try:
-    WATSONX_API_KEY = os.environ["WATSONX_API_KEY"]
-except KeyError:
-    print(f"Unable to find environment variable - WATSONX_API_KEY. Exiting...")
-    exit(1)
+
 
 try:
     THINKING_BUDGET_TOOLS = int(os.environ["THINKING_BUDGET_TOOLS"])
@@ -131,6 +127,26 @@ def get_llm_backend_for_tools():
             thinking_tools=THINKING_TOOLS,
             thinking_budget_tools=THINKING_BUDGET_TOOLS,
             extra_headers={"RITS_API_KEY": API_KEY_TOOLS},
+        )
+    elif PROVIDER == "watsonx":
+        try:
+            WATSONX_API_KEY = os.environ["WATSONX_API_KEY"]
+        except KeyError:
+            print(f"Unable to find environment variable - WATSONX_API_KEY. Exiting...")
+            exit(1)
+        return LiteLLMBackend(
+            provider=PROVIDER,
+            model_name=MODEL_TOOLS,
+            url=URL_TOOLS,
+            api_key=WATSONX_API_KEY,
+            api_version=API_VERSION_TOOLS,
+            seed=SEED_TOOLS,
+            top_p=TOP_P_TOOLS,
+            temperature=TEMPERATURE_TOOLS,
+            reasoning_effort=REASONING_EFFORT_TOOLS,
+            max_tokens=MAX_TOKENS_TOOLS,
+            thinking_tools=THINKING_TOOLS,
+            thinking_budget_tools=THINKING_BUDGET_TOOLS,
         )
     else:
         return LiteLLMBackend(
