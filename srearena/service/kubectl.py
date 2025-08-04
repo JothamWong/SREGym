@@ -75,6 +75,29 @@ class KubeCtl:
     def get_deployment(self, name: str, namespace: str):
         """Fetch the deployment configuration."""
         return self.apps_v1_api.read_namespaced_deployment(name, namespace)
+    
+    def get_namespace_deployment_status(self, namespace: str):
+        """Return the deployment status of an app within a namespace."""
+        try:
+            deployed_services = self.apps_v1_api.list_namespaced_deployment(namespace)
+            return len(deployed_services.items) > 0
+        except ApiException as e:
+            if e.status == 404:
+                print(f"Namespace {namespace} doesn't exist.")
+                return False
+            else:
+                raise e
+            
+    def get_service_deployment_status(self, service: str, namespace: str):
+        """Return the deployment status of a single service within a namespace."""
+        try:
+            self.get_deployment(service, namespace)
+            return True
+        except ApiException as e:
+            if e.status == 404:
+                return False
+            else:
+                raise e
 
     def get_service(self, name: str, namespace: str):
         """Fetch the service configuration."""

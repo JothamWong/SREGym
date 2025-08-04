@@ -2,14 +2,15 @@ from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.oracles.mitigation import MitigationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_virtual import VirtualizationFaultInjector
-from srearena.service.apps.social_network import SocialNetwork
+from srearena.service.apps.hotel_reservation import HotelReservation
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
-
+from srearena.service.apps.registry import AppRegistry
 
 class PersistentVolumeAffinityViolation(Problem):
-    def __init__(self, faulty_service: str = "user-service"):
-        self.app = SocialNetwork()
+    def __init__(self, app_name: str = "Social Network", faulty_service: str = "user-service"):
+        self.apps = AppRegistry()
+        self.app = self.apps.get_app_instance(app_name)
         self.kubectl = KubeCtl()
         self.namespace = self.app.namespace
         self.faulty_service = faulty_service
@@ -24,28 +25,23 @@ class PersistentVolumeAffinityViolation(Problem):
     @mark_fault_injected
     def inject_fault(self):
         print("== Fault Injection ==")
-        print("Creating Pod Anti-Affinity Deadlock...")
-        print("Setting requiredDuringScheduling anti-affinity that excludes all nodes")
-
+        print("Injecting persistent volume affinity violation...")
+        
         injector = VirtualizationFaultInjector(namespace=self.namespace)
         injector._inject(
-            fault_type="pod_anti_affinity_deadlock",
+            fault_type="persistent_volume_affinity_violation",
             microservices=[self.faulty_service],
         )
 
-        print(f"Expected effect: Pods should be in Pending state with:")
-        print(f"  '0/X nodes are available: X node(s) didn't match pod anti-affinity rules'")
+        print(f"Expected effect: {self.faulty_service} pod should be stuck in Pending state")
         print(f"Service: {self.faulty_service} | Namespace: {self.namespace}\n")
 
     @mark_fault_injected
     def recover_fault(self):
         print("== Fault Recovery ==")
-        print("Removing pod anti-affinity deadlock...")
-        print("Changing requiredDuring to preferredDuring or removing anti-affinity rules")
-
         injector = VirtualizationFaultInjector(namespace=self.namespace)
         injector._recover(
-            fault_type="pod_anti_affinity_deadlock",
+            fault_type="persistent_volume_affinity_violation",
             microservices=[self.faulty_service],
         )
 

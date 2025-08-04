@@ -1415,7 +1415,7 @@ class VirtualizationFaultInjector(FaultInjector):
                     "accessModes": ["ReadWriteOnce"],
                     "persistentVolumeReclaimPolicy": "Delete",
                     "storageClassName": "",
-                    "hostPath": {"path": f"/data/volumes/temp-pv"},
+                    "hostPath": {"path": f"/tmp/data/volumes/temp-pv"},
                     "nodeAffinity": {
                         "required": {
                             "nodeSelectorTerms": [
@@ -1504,9 +1504,9 @@ class VirtualizationFaultInjector(FaultInjector):
         for service in microservices:
             original_yaml_path = f"/tmp/{service}_modified.yaml"
 
-            delete_command = f"kubectl delete deployment {service} -n {self.namespace}"
-            delete_pv_command = f"kubectl delete pv temp-pv"
-            delete_pvc_command = f"kubectl delete pvc temp-pvc -n {self.namespace}"
+            delete_command = f"kubectl delete --ignore-not-found=true deployment {service} -n {self.namespace}"
+            delete_pv_command = f"kubectl delete --ignore-not-found=true pv temp-pv"
+            delete_pvc_command = f"kubectl delete --ignore-not-found=true pvc temp-pvc -n {self.namespace}"
             apply_command = f"kubectl apply -f {original_yaml_path} -n {self.namespace}"
 
             delete_result = self.kubectl.exec_command(delete_command)
