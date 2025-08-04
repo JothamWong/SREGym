@@ -14,7 +14,7 @@ class AppRegistry:
     def __init__(self):
         self.APP_REGISTRY = {
             "Astronomy Shop": AstronomyShop,
-            "Flight Ticket": FlightTicket,
+            # "Flight Ticket": FlightTicket,
             "Hotel Reservation": HotelReservation,
             "Social Network": SocialNetwork,
             # "Train Ticket": TrainTicket
@@ -22,7 +22,7 @@ class AppRegistry:
 
         self.APP_PATH = {
             "Astronomy Shop": ASTRONOMY_SHOP_METADATA,
-            "Flight Ticket": FLIGHT_TICKET_METADATA,
+            # "Flight Ticket": FLIGHT_TICKET_METADATA,
             "Hotel Reservation": HOTEL_RES_METADATA,
             "Social Network": SOCIAL_NETWORK_METADATA,
             # "Train Ticket": TRAIN_TICKET_METADATA
