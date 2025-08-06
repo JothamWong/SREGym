@@ -25,10 +25,14 @@ class Conductor:
         self.problem = None
         self.detection_oracle = None
         self.execution_start_time = None
+        self.agent_name = None
 
         # drives HTTP flow: noop→detection→localization→mitigation→done
         self.submission_stage = None
         self.results = {}
+
+    def register_agent(self, name="agent"):
+        self.agent_name = name
 
     def dependency_check(self, binaries: list[str]):
         for b in binaries:
