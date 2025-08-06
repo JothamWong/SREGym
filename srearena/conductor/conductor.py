@@ -1,6 +1,4 @@
-import asyncio
 import atexit
-import os
 import shutil
 import threading
 import time

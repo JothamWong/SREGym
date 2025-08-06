@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 import asyncio
 import threading
-import time
 
 from rich.console import Console
 

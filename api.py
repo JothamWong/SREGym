@@ -61,10 +61,3 @@ def run_api(conductor, host: str = "0.0.0.0", port: int = 8000):
     config.install_signal_handlers = False
     server = Server(config)
     server.run()
-
-
-if __name__ == "__main__":
-    from srearena.conductor.conductor import Conductor
-
-    c = Conductor()
-    run_api(c)
