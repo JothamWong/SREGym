@@ -1,10 +1,7 @@
-# main.py
-
 import asyncio
 import csv
 import sys
 import threading
-import time
 
 from rich.console import Console
 
