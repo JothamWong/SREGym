@@ -1,6 +1,10 @@
+# main.py
+
 import asyncio
 import csv
+import sys
 import threading
+import time
 
 from rich.console import Console
 
@@ -10,20 +14,24 @@ from srearena.conductor.conductor import Conductor
 
 def driver_loop(conductor: Conductor):
     """
-    Deploy each problem and wait for submissions.
+    Deploy each problem and wait for HTTP grading via POST /submit.
     Returns a list of flattened dicts with results per problem.
     """
 
     async def driver():
         console = Console()
-        await asyncio.sleep(1)  # allow API to bind
+        # give the API  a moment to bind
+        await asyncio.sleep(1)
 
         all_results = []
         for pid in conductor.problems.get_problem_ids():
             console.log(f"\n🔍 Starting problem: {pid}")
             conductor.problem_id = pid
+
+            # 1) Deploy & inject fault (noop stage)
             await conductor.start_problem()
 
+            # 2) Poll until grading completes
             with console.status(f"⏳ Waiting for grading… (stage={conductor.submission_stage})") as status:
                 while conductor.submission_stage != "done":
                     await asyncio.sleep(1)
@@ -31,7 +39,7 @@ def driver_loop(conductor: Conductor):
 
             console.log(f"✅ Completed {pid}: results={conductor.results}")
 
-            # Flatten and snapshot the results dict
+            # 3) Flatten results snapshot
             snapshot = {"problem_id": pid}
             for stage, outcome in conductor.results.items():
                 if isinstance(outcome, dict):
@@ -43,35 +51,41 @@ def driver_loop(conductor: Conductor):
 
         return all_results
 
+    # run the async driver and return its results
     return asyncio.run(driver())
 
 
 def main():
     conductor = Conductor()
 
-    # 1) Launch the HTTP API once in a background thread
-    threading.Thread(target=lambda: run_api(conductor, host="0.0.0.0", port=8000), daemon=True).start()
+    # -- 1) kick off the driver in a background thread --
+    #    it will deploy each problem and then wait for your HTTP POSTs to /submit
+    driver_thread = threading.Thread(target=lambda: setattr(main, "results", driver_loop(conductor)), daemon=True)
+    driver_thread.start()
+
+    # -- 2) start the API server in the MAIN thread --
     print("📡 HTTP API server launching at http://localhost:8000")
+    run_api(conductor, host="0.0.0.0", port=8000)
 
-    # 2) Run driver in main thread, collecting results
-    results = driver_loop(conductor)
+    # once run_api returns (i.e. server shuts down), we know driver is done
+    # fetch the results we stored on the `main` function object
+    results = getattr(main, "results", [])
 
-    # 3) Write out a CSV
+    # -- 3) Write out a CSV --
     if results:
-        # Gather all field names across snapshots
         fieldnames = sorted({key for row in results for key in row.keys()})
         csv_path = "srea_results.csv"
         with open(csv_path, "w", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(results)
-
         print(f"✅ Benchmark complete! Results written to {csv_path}")
     else:
         print("⚠️ No results to write.")
 
-    # 4) Exit (daemon API thread will shut down)
+    # -- 4) Exit --
     print("Exiting.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
