@@ -32,7 +32,6 @@ async def submit_solution(req: SubmitRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Grading error: {e}")
 
-    # return the snapshot of results
     return results
 
 

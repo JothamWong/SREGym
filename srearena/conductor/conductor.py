@@ -68,9 +68,9 @@ class Conductor:
 
     async def submit(self, wrapped_cmd: str) -> dict:
         """
-        Called by CLI or HTTP /submit. Parses & grades the `submit(...)` call,
+        Called by CLI or HTTP /submit.  Parses & grades the `submit(...)` call,
         advances submission_stage, records results—and when we hit “done”,
-        triggers undeploy_app. Returns the current results dict.
+        triggers undeploy_app. Returns a snapshot of the results dict.
         """
         from srearena.conductor.parser import ResponseParser
 
@@ -101,14 +101,18 @@ class Conductor:
             self.results["Detection"] = r
             self.results["TTD"] = time.time() - self.execution_start_time
 
+            # if no further stages, finalize here
+            if not self.problem.localization_oracle and not self.problem.mitigation_oracle:
+                self.submission_stage = "done"
+                snapshot = dict(self.results)
+                self.undeploy_app()
+                return snapshot
+
+            # otherwise advance
             if self.problem.localization_oracle:
                 self.submission_stage = "localization"
-            elif self.problem.mitigation_oracle:
-                self.submission_stage = "mitigation"
             else:
-                self.submission_stage = "done"
-                self.undeploy_app()
-
+                self.submission_stage = "mitigation"
             return dict(self.results)
 
         # LOCALIZATION
@@ -117,12 +121,13 @@ class Conductor:
             self.results["Localization"] = r
             self.results["TTL"] = time.time() - self.execution_start_time
 
-            if self.problem.mitigation_oracle:
-                self.submission_stage = "mitigation"
-            else:
+            if not self.problem.mitigation_oracle:
                 self.submission_stage = "done"
+                snapshot = dict(self.results)
                 self.undeploy_app()
+                return snapshot
 
+            self.submission_stage = "mitigation"
             return dict(self.results)
 
         # MITIGATION
@@ -132,17 +137,18 @@ class Conductor:
             self.results["TTM"] = time.time() - self.execution_start_time
 
             self.submission_stage = "done"
+            snapshot = dict(self.results)
             self.undeploy_app()
-            return dict(self.results)
+            return snapshot
 
-        # any other case
         return dict(self.results)
 
     def deploy_app(self):
         """Kubectl + Prometheus + problem.app deployment."""
         print("Setting up metrics-server…")
         self.kubectl.exec_command(
-            "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+            "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/"
+            "releases/latest/download/components.yaml"
         )
         self.kubectl.exec_command(
             "kubectl -n kube-system patch deployment metrics-server "
@@ -172,7 +178,6 @@ class Conductor:
     def undeploy_app(self):
         """Teardown problem.app and, if no other apps running, OpenEBS/Prometheus."""
         self.problem.app.cleanup()
-        self.kubectl.wait_for_namespace_deletion(self.problem.app.namespace)
         deployed = self.get_deployed_apps()
         if not deployed:
             self.prometheus.teardown()
@@ -197,7 +202,6 @@ class Conductor:
                 self.problem.app.cleanup()
         except (JSONDecodeError, RuntimeError):
             pass
-        # always teardown infra if nothing else is running
         self.prometheus.teardown()
         self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
         self.kubectl.exec_command("kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml")
