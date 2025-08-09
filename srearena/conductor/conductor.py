@@ -122,9 +122,9 @@ class Conductor:
             self.results["TTL"] = time.time() - self.execution_start_time
 
             if not self.problem.mitigation_oracle:
-                self.submission_stage = "done"
                 snapshot = dict(self.results)
                 self.undeploy_app()
+                self.submission_stage = "done"
                 return snapshot
 
             self.submission_stage = "mitigation"
@@ -136,9 +136,9 @@ class Conductor:
             self.results["Mitigation"] = r
             self.results["TTM"] = time.time() - self.execution_start_time
 
-            self.submission_stage = "done"
             snapshot = dict(self.results)
             self.undeploy_app()
+            self.submission_stage = "done"
             return snapshot
 
         return dict(self.results)
@@ -171,7 +171,6 @@ class Conductor:
         self.prometheus.deploy()
 
         print("Deploying and starting workload…")
-        self.problem.app.delete()
         self.problem.app.deploy()
         self.problem.app.start_workload()
 
