@@ -48,15 +48,12 @@ class Conductor:
         self.detection_oracle = DetectionOracle(self.problem)
         self.results = {}
 
-        # 1) Environment setup
         self.dependency_check(["kubectl", "helm"])
         print(f"[Session Start] Problem ID: {self.problem_id}")
         self.undeploy_app()  # Cleanup any leftovers
         self.deploy_app()
 
-        # 2) Ready for NO-OP detection
         self.submission_stage = "noop"
-        print("✅ Environment ready—now POST /submit to grade NO-OP detection.")
 
     async def submit(self, wrapped_cmd: str) -> dict:
         """
