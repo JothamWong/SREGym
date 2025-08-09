@@ -30,10 +30,8 @@ def driver_loop(conductor: Conductor):
             await conductor.start_problem()
 
             # 2) Poll until grading completes
-            with console.status(f"⏳ Waiting for grading… (stage={conductor.submission_stage})") as status:
-                while conductor.submission_stage != "done":
-                    await asyncio.sleep(1)
-                    status.update(f"⏳ Waiting for grading… (stage={conductor.submission_stage})")
+            while conductor.submission_stage != "done":
+                await asyncio.sleep(1)
 
             console.log(f"✅ Completed {pid}: results={conductor.results}")
 
