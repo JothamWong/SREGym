@@ -169,10 +169,11 @@ async def main():
     # Phase 3: Faulty system
     final_state = await diagnosis_agent.arun({"app_summary": problem.app.get_app_summary()})
     logger.info(f"Normal diagnosis final state: {final_state}")
-    if "detection" in final_state["ans"] and isinstance(final_state["ans"]["detection"], bool):
-        print(f"Faulty Result: {'✅' if final_state['ans']['detection'] else '❌'}")
-    else:
-        print(f"Faulty Result: '❌'; Invalid answer provided by the agent!")
+
+    # if "detection" in final_state["ans"] and isinstance(final_state["ans"]["detection"], bool):
+    #     print(f"Faulty Result: {'✅' if final_state['ans']['detection'] else '❌'}")
+    # else:
+    #     print(f"Faulty Result: '❌'; Invalid answer provided by the agent!")
 
     # mitigation
     # NOTE: The mitigation agent and rollback agent share the same session and thus their tools have consistent states.
