@@ -1,27 +1,50 @@
+import logging
+from contextlib import AsyncExitStack
 from typing import Annotated
-from langgraph.types import Command
+
 from langchain_core.messages import ToolMessage
-from langchain_core.tools import tool, InjectedToolCallId
+from langchain_core.tools import InjectedToolCallId, tool
+from langgraph.types import Command
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+from clients.configs.langgraph_tool_configs import langToolCfg
 
 submit_tool_docstring = """
 Use this tool to submit your answer to the assigned tasks. You can give partial answer or empty answer
     (still of type dict) if you can not solve all of them.
 
     Args:
-        ans (dict): It contains your answers to submit. For each item in ans, its key corresponds to a
-            task name and its value corresponds to your answer to this task.
+        ans (string): the answer you would like to submit
 """
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 @tool(description=submit_tool_docstring)
-def submit_tool(ans: dict,
-                tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
+async def submit_tool(ans: str, tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
+    # makes http call to benchmark submission server
+    logging.info(f"submitting to benchmark, answer: {ans}")
 
-    return Command(update={
-        "submitted": True,
-        "ans": ans,
-        "messages": [
-            ToolMessage(f"Submission complete. No further action is needed.",
-                        tool_call_id=tool_call_id)
-        ]
-    })
+    exit_stack = AsyncExitStack()
+    logger.info("Using HTTP, connecting to server.")
+    server_url = langToolCfg.mcp_observability
+    http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
+    session = await exit_stack.enter_async_context(ClientSession(*http_transport))
+
+    await session.initialize()
+
+    result = await session.call_tool(
+        "submit",
+        arguments={
+            "answer": ans,
+        },
+    )
+    await exit_stack.aclose()
+    return Command(
+        update={
+            "submitted": True,
+            "ans": ans,
+            "messages": [ToolMessage(f"Submission complete. No further action is needed.", tool_call_id=tool_call_id)],
+        }
+    )
