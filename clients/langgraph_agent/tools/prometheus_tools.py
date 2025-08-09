@@ -8,7 +8,7 @@ from langgraph.types import Command
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from clients.configs.langgraph_tool_configs import langToolCfg
+from clients.configs.langgraph_tool_configs import LanggraphToolConfig
 from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
 from clients.langgraph_agent.tools.text_editing.flake8_utils import flake8, format_flake8_output  # type: ignore
 from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: ignore
@@ -20,6 +20,7 @@ from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+langgraph_tool_config = LanggraphToolConfig()
 
 get_metrics_docstring = """
 Query real-time metrics data from the Prometheus instance.
@@ -34,8 +35,8 @@ Query real-time metrics data from the Prometheus instance.
 
 @tool(description=get_metrics_docstring)
 async def get_metrics(
-        query: str,
-        tool_call_id: Annotated[str, InjectedToolCallId],
+    query: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
 
     logger.info(f"get_metrics called with query: {query}")
@@ -43,7 +44,7 @@ async def get_metrics(
     exit_stack = AsyncExitStack()
     logger.info("Using HTTP, connecting to server.")
     # server_url = "http://127.0.0.1:9953/sse"
-    server_url = langToolCfg.mcp_prometheus
+    server_url = langgraph_tool_config.mcp_prometheus
     # Register both the SSE client and session with an async exit stack so they will automatically clean up when
     # you're done (e.g. close connections properly
 
@@ -67,15 +68,14 @@ async def get_metrics(
     logger.info(f"Metrics received: {metrics}")
     await exit_stack.aclose()
 
-    if langToolCfg.use_summaries and len(metrics) >= langToolCfg.min_len_to_sum:
+    if langgraph_tool_config.use_summaries and len(metrics) >= langgraph_tool_config.min_len_to_sum:
         metrics = _summarize_metrics(result)
         # logger.info(f"Summary: {metrics}")
 
     return Command(
         update={
             "messages": [
-                ToolMessage(content=metrics,
-                            tool_call_id=tool_call_id),
+                ToolMessage(content=metrics, tool_call_id=tool_call_id),
             ]
         }
     )

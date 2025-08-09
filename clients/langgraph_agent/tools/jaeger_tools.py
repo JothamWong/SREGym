@@ -8,7 +8,7 @@ from langgraph.types import Command
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from clients.configs.langgraph_tool_configs import langToolCfg
+from clients.configs.langgraph_tool_configs import LanggraphToolConfig
 from clients.langgraph_agent.llm_backend.init_backend import get_llm_backend_for_tools
 from clients.langgraph_agent.tools.text_editing.flake8_utils import flake8, format_flake8_output  # type: ignore
 from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: ignore
@@ -20,6 +20,7 @@ from clients.langgraph_agent.tools.text_editing.windowed_file import (  # type: 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+langgraph_tool_config = LanggraphToolConfig()
 
 get_traces_docstring = """Get Jaeger traces for a given service in the last n minutes.
 
@@ -30,17 +31,13 @@ get_traces_docstring = """Get Jaeger traces for a given service in the last n mi
 
 
 @tool(description=get_traces_docstring)
-async def get_traces(
-        service: str,
-        last_n_minutes: int,
-        tool_call_id: Annotated[str, InjectedToolCallId]
-) -> Command:
+async def get_traces(service: str, last_n_minutes: int, tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
 
     logging.info(f"Getting traces for service {service} in the last {last_n_minutes} minutes")
 
     exit_stack = AsyncExitStack()
     logger.info("Using HTTP, connecting to server.")
-    server_url = langToolCfg.mcp_observability
+    server_url = langgraph_tool_config.mcp_observability
     http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
     session = await exit_stack.enter_async_context(ClientSession(*http_transport))
 
@@ -55,15 +52,17 @@ async def get_traces(
     )
     await exit_stack.aclose()
     traces = result.content[0].text
-    if langToolCfg.use_summaries and len(traces) >= langToolCfg.min_len_to_sum:
+    if langgraph_tool_config.use_summaries and len(traces) >= langgraph_tool_config.min_len_to_sum:
         logger.info("Using summaries for traces.")
         traces = _summarize_traces(traces)
 
     return Command(
         update={
             "messages": [
-                ToolMessage(content=traces,
-                            tool_call_id=tool_call_id, ),
+                ToolMessage(
+                    content=traces,
+                    tool_call_id=tool_call_id,
+                ),
             ]
         }
     )
@@ -135,14 +134,12 @@ Retrieve the list of service names from the Grafana instance.
 
 
 @tool(description=get_services_docstring)
-async def get_services(
-        tool_call_id: Annotated[str, InjectedToolCallId]
-) -> Command:
+async def get_services(tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
 
     logger.info(f"calling mcp get_services from langchain get_services")
     exit_stack = AsyncExitStack()
     logger.info("Using HTTP, connecting to server.")
-    server_url = langToolCfg.mcp_observability
+    server_url = langgraph_tool_config.mcp_observability
     http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
     session = await exit_stack.enter_async_context(ClientSession(*http_transport))
 
@@ -155,8 +152,10 @@ async def get_services(
     return Command(
         update={
             "messages": [
-                ToolMessage(content=services,
-                            tool_call_id=tool_call_id, ),
+                ToolMessage(
+                    content=services,
+                    tool_call_id=tool_call_id,
+                ),
             ]
         }
     )
@@ -175,14 +174,14 @@ Query available operations for a specific service from the Grafana instance.
 
 @tool(description=get_operations_docstring)
 async def get_operations(
-        service: str,
-        tool_call_id: Annotated[str, InjectedToolCallId],
+    service: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
 
     logger.info(f"calling mcp get_operations from langchain get_operations with service {service}")
     exit_stack = AsyncExitStack()
     logger.info("Using HTTP, connecting to server.")
-    server_url = langToolCfg.mcp_observability
+    server_url = langgraph_tool_config.mcp_observability
     http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
     session = await exit_stack.enter_async_context(ClientSession(*http_transport))
 
@@ -194,14 +193,13 @@ async def get_operations(
     )
     await exit_stack.aclose()
     operations = result.content[0].text
-    if langToolCfg.use_summaries and len(operations) >= langToolCfg.min_len_to_sum:
+    if langgraph_tool_config.use_summaries and len(operations) >= langgraph_tool_config.min_len_to_sum:
         logger.info("Using summaries for operations.")
         operations = _summarize_operations(operations)
     return Command(
         update={
             "messages": [
-                ToolMessage(content=operations,
-                            tool_call_id=tool_call_id),
+                ToolMessage(content=operations, tool_call_id=tool_call_id),
             ]
         }
     )

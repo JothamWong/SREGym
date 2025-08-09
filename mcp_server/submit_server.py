@@ -6,10 +6,13 @@ from datetime import datetime, timedelta
 import requests
 from fastmcp import FastMCP
 
-from clients.configs.langgraph_tool_configs import langToolCfg
+from clients.configs.langgraph_tool_configs import LanggraphToolConfig
 
 logger = logging.getLogger("Submission MCP Server")
 logger.info("Starting Submission MCP Server")
+
+langgraph_tool_config = LanggraphToolConfig()
+
 mcp = FastMCP("Submission MCP Server")
 
 
@@ -26,7 +29,7 @@ def submit(ans: str) -> str:
 
     logger.info("[submit_mcp] submit mcp called")
     # FIXME: reference url from config file, remove hard coding
-    url = langToolCfg.mcp_observability
+    url = langgraph_tool_config.mcp_observability
     headers = {"Content-Type": "application/json"}
     # Match curl behavior: send "\"yes\"" when ans is "yes"
     payload = {"solution": f'"{ans}"'}

@@ -8,7 +8,7 @@ from langgraph.types import Command
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from clients.configs.langgraph_tool_configs import langToolCfg
+from clients.configs.langgraph_tool_configs import LanggraphToolConfig
 
 submit_tool_docstring = """
 Use this tool to submit your answer to the assigned tasks. You can give partial answer or empty answer
@@ -20,6 +20,8 @@ Use this tool to submit your answer to the assigned tasks. You can give partial 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+langgraph_tool_config = LanggraphToolConfig()
+
 
 @tool(description=submit_tool_docstring)
 async def submit_tool(ans: str, tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
@@ -28,7 +30,7 @@ async def submit_tool(ans: str, tool_call_id: Annotated[str, InjectedToolCallId]
 
     exit_stack = AsyncExitStack()
     logger.info("Using HTTP, connecting to server.")
-    server_url = langToolCfg.mcp_observability
+    server_url = langgraph_tool_config.mcp_observability
     http_transport = await exit_stack.enter_async_context(sse_client(url=server_url))
     session = await exit_stack.enter_async_context(ClientSession(*http_transport))
 
