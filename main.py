@@ -26,16 +26,14 @@ def driver_loop(conductor: Conductor):
             console.log(f"\n🔍 Starting problem: {pid}")
             conductor.problem_id = pid
 
-            # 1) Deploy & inject fault (noop stage)
             await conductor.start_problem()
 
-            # 2) Poll until grading completes
+            # Poll until grading completes
             while conductor.submission_stage != "done":
                 await asyncio.sleep(1)
 
             console.log(f"✅ Completed {pid}: results={conductor.results}")
 
-            # 3) Flatten results snapshot
             snapshot = {"problem_id": pid}
             for stage, outcome in conductor.results.items():
                 if isinstance(outcome, dict):
@@ -56,12 +54,12 @@ def main():
     conductor = Conductor()
     conductor.register_agent(agent_name)
 
-    # -- 1) kick off the driver in a background thread --
+    # -- kick off the driver in a background thread --
     #    it will deploy each problem and then wait for your HTTP POSTs to /submit
     driver_thread = threading.Thread(target=lambda: setattr(main, "results", driver_loop(conductor)), daemon=True)
     driver_thread.start()
 
-    # -- 2) start the API server in the MAIN thread --
+    # -- start the API server in the MAIN thread --
     print("📡 HTTP API server launching at http://localhost:8000")
     run_api(conductor, host="0.0.0.0", port=8000)
 
@@ -69,7 +67,6 @@ def main():
     # fetch the results we stored on the `main` function object
     results = getattr(main, "results", [])
 
-    # -- 3) Write out a CSV --
     if results:
         fieldnames = sorted({key for row in results for key in row.keys()})
         csv_path = f"{agent_name}_results.csv"
@@ -81,8 +78,6 @@ def main():
     else:
         print("⚠️ No results to write.")
 
-    # -- 4) Exit --
-    print("Exiting.")
     sys.exit(0)
 
 
