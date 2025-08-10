@@ -6,14 +6,13 @@ from collections import Counter
 
 import yaml
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from clients.stratus.llm_backend.init_backend import get_llm_backend_for_tools
-from clients.stratus.state import State
+from clients.stratus.stratus_agent.state import State
 from clients.stratus.tools.basic_tool_node import BasicToolNode
 from clients.stratus.tools.compile.compile_tool import compile_postgresql_server
 from clients.stratus.tools.jaeger_tools import get_operations, get_services, get_traces

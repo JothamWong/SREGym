@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END
 from langgraph.graph import START, StateGraph
 
-from clients.stratus.state import State
+from clients.stratus.stratus_agent.state import State
 from clients.stratus.stratus_utils.ai_msg_mock_utils import ai_msg_tpl
 from clients.stratus.tools.kubectl_tools import (
     ExecKubectlCmdSafely,

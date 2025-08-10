@@ -10,7 +10,7 @@ from langgraph.types import Command
 
 from clients.stratus.configs import BaseAgentCfg
 from clients.stratus.llm_backend.init_backend import get_llm_backend_for_tools
-from clients.stratus.state import State
+from clients.stratus.stratus_agent.state import State
 from clients.stratus.tools.stratus_tool_node import StratusToolNode
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")

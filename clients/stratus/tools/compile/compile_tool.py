@@ -2,14 +2,12 @@ import logging
 import os.path
 import subprocess
 from pathlib import Path
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
-from langgraph.types import Command
 
-from clients.stratus.state import State
 from clients.stratus.tools.text_editing.flake8_utils import flake8, format_flake8_output  # type: ignore
 from clients.stratus.tools.text_editing.windowed_file import (  # type: ignore
     FileNotOpened,

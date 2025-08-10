@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clients.stratus.nl2kubectl_agent import NL2KubectlAgent
+from tests.kubectl_tool_tests.nl2kubectl_agent import NL2KubectlAgent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
