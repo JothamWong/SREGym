@@ -2,7 +2,7 @@ import yaml
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 
-def get_init_prompts(config_path):
+def get_starting_prompts(config_path):
     with open(config_path, "r") as config_file:
         config = yaml.safe_load(config_file)
         max_step = config["max_step"]
