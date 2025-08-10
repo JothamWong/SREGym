@@ -138,7 +138,7 @@ dependencies = [
     "opentelemetry-util-http==0.52b1",
     "outlines==0.1.11",
     "outlines-core==0.1.26",
-    "packaging==24.0",
+    "packaging>=24.0",
     "pandas==2.2.3",
     "paramiko==3.5.1",
     "partial-json-parser==0.2.1.1.post5",
@@ -176,7 +176,7 @@ dependencies = [
     "ray==2.40.0",
     "referencing==0.36.2",
     "regex==2024.11.6",
-    "requests==2.32.3",
+    "requests>=2.32.3",
     "requests-oauthlib==2.0.0",
     "rich==13.9.4",
     "rich-toolkit==0.14.6",
@@ -203,7 +203,7 @@ dependencies = [
     "typing-inspection==0.4.1",
     "tzdata==2025.2",
     "tzlocal==5.3.1",
-    "urllib3==2.4.0",
+    "urllib3>=2.4.0",
     "uvicorn==0.34.2",
     "uvloop==0.21.0",
     "watchfiles==1.0.5",
@@ -214,6 +214,7 @@ dependencies = [
     "yarl==1.20.0",
     "zipp==3.22.0",
     "pyfiglet>=1.0.3",
+    "langchain-ibm>=0.3.15",
 ]
 
 [tool.black]
