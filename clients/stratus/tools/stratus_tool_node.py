@@ -31,10 +31,9 @@ def reschedule_tool_calls(tool_calls):
 class StratusToolNode:
     """A node that runs the tools requested in the last AIMessage."""
 
-    def __init__(self, sync_tools: list[BaseTool], async_tools: list[BaseTool], max_tool_call_one_round) -> None:
+    def __init__(self, sync_tools: list[BaseTool], async_tools: list[BaseTool]) -> None:
         self.sync_tools_by_name = {t.name: t for t in sync_tools}
         self.async_tools_by_name = {t.name: t for t in async_tools}
-        self.max_tool_call_one_round = max_tool_call_one_round
 
     def __call__(self, inputs: dict):
         if messages := inputs.get("messages", []):
@@ -51,31 +50,15 @@ class StratusToolNode:
             logger.warning("AIMessage does not contain tool_calls.")
             return {"messages": []}
 
-        rescheduled_tool_calls = reschedule_tool_calls(message.tool_calls)
+        if len(message.tool_calls) > 0:
+            logger.warning("more than 1 tool call found. Calling in order")
+            logger.warning("technically, only one tool call allowed")
 
         to_update = dict()
         new_messages = []
-        for i, tool_call in enumerate(rescheduled_tool_calls):
-            if i >= self.max_tool_call_one_round:
-                message = (
-                    f"Error: The maximum number of tool_calls allowed "
-                    f"for one round is {self.max_tool_call_one_round}."
-                )
-                logger.info(f"Tool_call denied; tool_call: {tool_call}\n{message}")
-                new_messages += [ToolMessage(content=message, tool_call_id=tool_call["id"])]
-                continue
-
-            is_submit_tried = inputs["submit_tried"] or to_update.get("submit_tried", False)
-            if is_submit_tried and tool_call["name"] != "submit_tool":
-                message = (
-                    f"Error: It is not allowed to call other tools after " f"calling the submit_tool for submission."
-                )
-                logger.info(f"Tool_call denied; tool_call: {tool_call}\n{message}")
-                new_messages += [ToolMessage(content=message, tool_call_id=tool_call["id"])]
-                continue
-
+        for i, tool_call in enumerate(message.tool_calls):
             if tool_call["name"] == "submit_tool":
-                to_update["submit_tried"] = True
+                to_update["submitted"] = True
 
             try:
                 logger.info(f"invoking tool: {tool_call['name']}, tool_call: {tool_call}")
