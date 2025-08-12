@@ -29,7 +29,7 @@ def driver_loop(conductor: Conductor):
             await conductor.start_problem()
 
             # Poll until grading completes
-            while conductor.submission_stage != "done":
+            while conductor.submission_stage != "teardown":
                 await asyncio.sleep(1)
 
             console.log(f"✅ Completed {pid}: results={conductor.results}")
