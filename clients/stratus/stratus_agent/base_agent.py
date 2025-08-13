@@ -44,7 +44,7 @@ class BaseAgent:
             "messages": ai_message,
         }
 
-    def llm_tool_call_step(self, state: State, tools):
+    def llm_tool_call_step(self, state: State):
         human_prompt = HumanMessage(content="Now generate a tool call according to your last chosen tool.")
         return {
             "messages": self.llm_inference_step(
