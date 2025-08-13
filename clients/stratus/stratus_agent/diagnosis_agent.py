@@ -19,16 +19,17 @@ logger = get_logger()
 class DiagnosisAgent(BaseAgent):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.tool_node = None
 
     def build_agent(self):
-        tool_node = StratusToolNode(async_tools=self.async_tools, sync_tools=self.sync_tools)
+        self.tool_node = StratusToolNode(async_tools=self.async_tools, sync_tools=self.sync_tools)
         thinking_node = "thinking_step"
         tool_calling_node = "tool_calling_step"
         process_tool_call_node = "process_tool_call"
         # we add the node to the graph
         self.graph_builder.add_node(thinking_node, self.llm_thinking_step)
         self.graph_builder.add_node(tool_calling_node, self.llm_tool_call_step)
-        self.graph_builder.add_node(process_tool_call_node, tool_node)
+        self.graph_builder.add_node(process_tool_call_node, self.tool_node)
 
         # commenting these out first, focusing on basic diagnosis capability
         # self.graph_builder.add_node("post_tool_hook", self.post_tool_hook)
@@ -78,36 +79,38 @@ class DiagnosisAgent(BaseAgent):
         if len(starting_prompts) == 0:
             raise ValueError("No prompts used to start the conversation!")
 
-        graph_config = {"configurable": {"thread_id": "1"}}
-        last_state = self.graph.get_state(config=graph_config)
-        logger.info("last state: %s", last_state)
-        if len(last_state.values) != 0:
-            logger.info("last state values: %s", last_state.values["messages"])
-            # this is all the previous msgs the agent had, we just inherit them in the next graph traversal
-            state = last_state.values
-        else:
-            # fresh agent start, init state here
-            state = {
-                "messages": starting_prompts,
-                # "workdir": "",
-                # "curr_file": "",
-                # "curr_line": 0,
-                "num_steps": 0,
-                # "rec_submission_rounds": 0,
-                # "submit_tried": False,
-                "submitted": False,
-                # "ans": dict(),
-            }
-
         graph_events = []
-        async for event in self.graph.astream(
-            state,
-            # recursion_limit could be as large as possible as we have our own limit.
-            config={"recursion_limit": 10000, "configurable": {"thread_id": "1"}},
-            stream_mode="values",
-        ):
-            graph_events.append(event)
-            event["messages"][-1].pretty_print()
+        while True:
+            graph_config = {"configurable": {"thread_id": "1"}}
+            last_state = self.graph.get_state(config=graph_config)
+            # logger.info("last state: %s", last_state)
+            if len(last_state.values) != 0:
+                logger.info("There were last states.")
+                # this is all the previous msgs the agent had, we just inherit them in the next graph traversal
+                state = last_state.values
+            else:
+                logger.info("There were no states.")
+                # fresh agent start, init state here
+                state = {
+                    "messages": starting_prompts,
+                    # "workdir": "",
+                    # "curr_file": "",
+                    # "curr_line": 0,
+                    "num_steps": 0,
+                    # "rec_submission_rounds": 0,
+                    # "submit_tried": False,
+                    "submitted": False,
+                    # "ans": dict(),
+                }
+
+            async for event in self.graph.astream(
+                state,
+                # recursion_limit could be as large as possible as we have our own limit.
+                config={"recursion_limit": 10000, "configurable": {"thread_id": "1"}},
+                stream_mode="values",
+            ):
+                graph_events.append(event)
+                event["messages"][-1].pretty_print()
 
         return graph_events[-1]
 
