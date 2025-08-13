@@ -10,8 +10,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 
-from srearena.observer import root_path
-
 
 class TraceAPI:
     def __init__(self, namespace: str):
@@ -305,13 +303,3 @@ class TraceAPI:
         df.to_csv(file_path, index=False)
         self.cleanup()  # Stop port-forwarding after traces are exported
         return f"Traces data exported to: {file_path}"
-
-
-if __name__ == "__main__":
-    tracer = TraceAPI(namespace="hotel-reservation")
-    end_time = datetime.now()
-    start_time = end_time - timedelta(minutes=9)  # Example time window
-    traces = tracer.extract_traces(start_time, end_time)
-    df_traces = tracer.process_traces(traces)
-    save_path = root_path / "trace_output"
-    tracer.save_traces(df_traces, save_path)
