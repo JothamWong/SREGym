@@ -13,6 +13,7 @@ class HotelReservation(Application):
         super().__init__(HOTEL_RES_METADATA)
         self.kubectl = KubeCtl()
         self.trace_api = None
+        self.trace_api = None
         self.script_dir = FAULT_SCRIPTS
         self.helm_deploy = False
 
@@ -75,6 +76,8 @@ class HotelReservation(Application):
         self.create_configmaps()
         self.kubectl.apply_configs(self.namespace, self.k8s_deploy_path)
         self.kubectl.wait_for_ready(self.namespace)
+        self.trace_api = TraceAPI(self.namespace)
+        self.trace_api.start_port_forward()
 
     def delete(self):
         """Delete the configmap."""
@@ -82,6 +85,8 @@ class HotelReservation(Application):
 
     def cleanup(self):
         """Delete the entire namespace for the hotel reservation application."""
+        if self.trace_api:
+            self.trace_api.stop_port_forward()
         self.kubectl.delete_namespace(self.namespace)
         self.kubectl.wait_for_namespace_deletion(self.namespace)
         pvs = self.kubectl.exec_command(
