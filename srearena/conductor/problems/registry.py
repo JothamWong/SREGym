@@ -30,7 +30,7 @@ from srearena.conductor.problems.sidecar_port_conflict import SidecarPortConflic
 from srearena.conductor.problems.stale_coredns_config import StaleCoreDNSConfig
 from srearena.conductor.problems.storage_user_unregistered import MongoDBUserUnregistered
 from srearena.conductor.problems.target_port import K8STargetPortMisconfig
-from srearena.conductor.problems.trainticket_f1_async_message_order import TrainTicketF1AsyncMessageOrderProblem
+from srearena.conductor.problems.trainticket_f17 import TrainTicketF17
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
@@ -64,7 +64,7 @@ class ProblemRegistry:
             "astronomy_shop_recommendation_service_cache_failure": RecommendationServiceCacheFailure,
             "redeploy_without_PV": RedeployWithoutPV,
             "wrong_bin_usage": WrongBinUsage,
-            "trainticket_f1_async_message_order": TrainTicketF1AsyncMessageOrderProblem,
+            "trainticket_f17_nested_sql_select_clause_error": TrainTicketF17,
             "missing_service_hotel_reservation": lambda: MissingService(
                 app_name="hotel_reservation", faulty_service="mongodb-rate"
             ),
