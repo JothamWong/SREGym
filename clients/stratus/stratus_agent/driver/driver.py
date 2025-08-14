@@ -7,7 +7,7 @@ import yaml
 from clients.stratus.stratus_agent.diagnosis_agent import main as diagnosis_task_main
 from clients.stratus.stratus_agent.localization_agent import main as localization_task_main
 from clients.stratus.stratus_agent.mitigation_agent import (
-    reflect_run,
+    generate_run_summary,
 )
 from clients.stratus.stratus_agent.mitigation_agent import retry_run_with_feedback as mitigation_agent_retry_run
 from clients.stratus.stratus_agent.mitigation_agent import (
@@ -89,7 +89,10 @@ async def mitigation_task_main():
             if curr_attempt == 0:
                 mitigation_agent_last_state = await mitigation_agent_single_run()
             else:
-                mitigation_agent_last_state = await mitigation_agent_retry_run(reflect_run(mitigation_agent_last_state))
+                # we compose the retry prompts here.
+                mitigation_agent_last_state = await mitigation_agent_retry_run(
+                    generate_run_summary(mitigation_agent_last_state)
+                )
             oracle_results = validate_oracles(oracles)
             if oracle_results[0] is True:
                 # agent succeeds, let's finish here.

@@ -180,7 +180,7 @@ def build_default_mitigation_agent():
     return mitigation_agent, mitigation_agent_prompt_path, mitigation_agent_max_step
 
 
-def reflect_run(last_state: StateSnapshot) -> str:
+def generate_run_summary(last_state: StateSnapshot) -> str:
     """
     Returns a SystemMessage and a HumanMessage as a list. They are summaries and reflections of a given last run
     `last_state`.
