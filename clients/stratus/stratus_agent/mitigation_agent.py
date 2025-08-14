@@ -182,13 +182,16 @@ def build_default_mitigation_agent():
 def reflect_run(last_state: State) -> List[SystemMessage, HumanMessage]:
     """
     Returns a SystemMessage and a HumanMessage as a list. They are summaries and reflections of a given last run
-        `last_state`
+    `last_state`.
+    Ideally, we only need to summarize the last 20 (or all of them if less than 20) messages from the agent
 
         Args:
             last_state (State): the state from last run
         Returns:
             a list of SystemMessage and HumanMessage representing the reflections
     """
+    llm = get_llm_backend_for_tools()
+    logger.info("last state: %s", last_state)
     pass
 
 
