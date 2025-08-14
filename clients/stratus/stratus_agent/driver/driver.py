@@ -55,7 +55,10 @@ async def mitigation_task_main():
         await mitigation_agent_main()
     elif mitigation_agent_retry_mode == "naive":
         # if the retry mode is naive, run mitigation agent with retry but no rollback agent.
-        pass
+        curr_attempt = 0
+        while curr_attempt < mitigation_agent_max_retry_attempts:
+            last_state = await mitigation_agent_main()
+            curr_attempt += 1
     elif mitigation_agent_retry_mode == "validate":
         # if the retry mode is validation, run mitigation agent with rollback and weak oracle.
         # each start of new agent trial, the agent should receive the last run's oracle results

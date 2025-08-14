@@ -110,7 +110,7 @@ class MitigationAgent(BaseAgent):
         return last_state
 
 
-def main():
+async def main():
     # agent config and init setup
     file_parent_dir = Path(__file__).resolve().parent
     mitigation_agent_config_path = file_parent_dir.parent / "configs" / "mitigation_agent_config.yaml"
@@ -158,10 +158,10 @@ def main():
     mitigation_agent.build_agent()
     mitigation_agent.save_agent_graph_to_png()
 
-    res = asyncio.run(
-        mitigation_agent.arun(get_starting_prompts(mitigation_agent_prompt_path, max_step=mitigation_agent_max_step))
+    res = await mitigation_agent.arun(
+        get_starting_prompts(mitigation_agent_prompt_path, max_step=mitigation_agent_max_step)
     )
-    print(res)
+    return res
 
 
 if __name__ == "__main__":
