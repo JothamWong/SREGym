@@ -82,7 +82,6 @@ async def mitigation_task_main():
         # if the retry mode is validation, run mitigation agent with rollback and weak oracle.
         # each start of new agent trial, the agent should receive the last run's oracle results
         # and some reflections as input
-        # TODO: need new function for trajectory reflection
         curr_attempt = 0
         mitigation_agent_last_state = ""
         rollback_agent_last_state = ""
