@@ -4,7 +4,6 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END
 from langgraph.graph import START
 
-from clients.stratus.configs import BaseAgentCfg
 from clients.stratus.stratus_agent.base_agent import BaseAgent
 from clients.stratus.tools.stratus_tool_node import StratusToolNode
 
