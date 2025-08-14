@@ -18,21 +18,20 @@ system: >
   application has become healthy before you call submit_tool.
 
 user: |
-  In each round, there is an explanation stage where you should respond with reasons of why you want to call the tools with the arguments next;
-  the tools you mentioned must be available to you at first; 
-  then, there is a tool-call stage, where you make tool_calls consistent with your explanation.
-  You can run up to {max_step} steps to finish the tasks.
-  Here, a step is defined as one tool call you generate. 
-  If you call submit_tool in tool-call stage, the process will end immediately and this round won’t count toward the limit.
-  If you exceed this limitation, the system will force to end the conversation and you will be considered failing the tasks.
-  You should minimize the number of interaction rounds while ensuring task completion.
-
-retry_user: |
   The following is the information of faults identified by a diagnosis agent in the app:
   
   {faults_info}
   
+  In each round, there is a thinking stage. In the thinking stage, you are given a list of tools. Think about what you want to call. Return your tool choice and the reasoning behind
+  Then, there is a tool-call stage, where you make a tool_call consistent with your explanation.
+  You can run up to {max_step} rounds to finish the tasks.
+  If you call submit_tool in tool-call stage, the process will end immediately.
+  If you exceed this limitation, the system will force you to make a submission.
+  You will begin by analyzing the service's state and telemetry with the tools.
+
+retry_user: |
   The result from the last attempt of mitigation is as follows:
+  
   {last_result}
   
   There are some reflections from the previous run:
