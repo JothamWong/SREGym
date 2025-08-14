@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import List
 
 import yaml
 
@@ -8,8 +9,16 @@ from clients.stratus.stratus_agent.localization_agent import main as localizatio
 from clients.stratus.stratus_agent.mitigation_agent import main as mitigation_agent_main
 from clients.stratus.stratus_agent.rollback_agent import main as rollback_agent_main
 from clients.stratus.stratus_utils.get_logger import get_logger
+from clients.stratus.weak_oracles.base_oracle import BaseOracle, OracleResult
 
 logger = get_logger()
+
+
+def validate_oracles(oracles: List[BaseOracle]) -> bool:
+    for oracle in oracles:
+        res: OracleResult = oracle.validate()
+        if not res.success:
+            return False
 
 
 async def mitigation_task_main():
@@ -43,6 +52,10 @@ async def mitigation_task_main():
         pass
     elif mitigation_agent_retry_mode == "validate":
         # if the retry mode is validation, run mitigation agent with rollback and weak oracle.
+        # each start of new agent trial, the agent should receive the last run's oracle results
+        # and some reflections as input
+        # TODO: need new agent node for trajectory reflection
+        # TODO: need new agent node for starting new attempt with reflections and past oracle result as input
         pass
 
 
