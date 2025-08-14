@@ -57,7 +57,7 @@ class RollbackAgent(BaseAgent):
         self.graph = self.graph_builder.compile(checkpointer=memory)
 
 
-def main():
+async def main():
     file_parent_dir = Path(__file__).resolve().parent
     rollback_agent_config_path = file_parent_dir.parent / "configs" / "rollback_agent_config.yaml"
     rollback_agent_config = yaml.safe_load(open(rollback_agent_config_path, "r"))
@@ -102,9 +102,9 @@ def main():
     agent.build_agent()
     agent.save_agent_graph_to_png()
 
-    res = asyncio.run(agent.arun(get_starting_prompts(prompt_path, max_step=max_step)))
-    print(res)
+    res = await agent.arun(get_starting_prompts(prompt_path, max_step=max_step))
+    return res
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
