@@ -44,6 +44,7 @@ async def mitigation_task_main(localization_summary):
     #      inside mitigation agent's method seems against good SE practice.
 
     # getting some configs
+    logger.info("loading configs")
     file_parent_dir = Path(__file__).resolve().parent.parent
     mitigation_agent_config_path = file_parent_dir.parent / "configs" / "mitigation_agent_config.yaml"
     mitigation_agent_config = yaml.safe_load(open(mitigation_agent_config_path, "r"))
@@ -63,6 +64,7 @@ async def mitigation_task_main(localization_summary):
     mitigation_agent_prompts = yaml.safe_load(open(mitigation_agent_prompt_path, "r"))
 
     # oracle
+    logger.info("setting up oracles")
     cluster_state_oracle = ClusterStateOracle()
     oracles = [cluster_state_oracle]
 
@@ -76,6 +78,7 @@ async def mitigation_task_main(localization_summary):
         ),
     ]
 
+    logger.info(f"running in retry mode: [{mitigation_agent_retry_mode}]")
     # mitigation task in plain English:
     if mitigation_agent_retry_mode == "none":
         # if the retry mode is none, just run mitigation agent once.
@@ -85,12 +88,16 @@ async def mitigation_task_main(localization_summary):
         curr_attempt = 0
         last_state = ""
         while curr_attempt < mitigation_agent_max_retry_attempts:
+            logger.info(f"current attempt: {curr_attempt + 1}/{mitigation_agent_max_retry_attempts}")
             last_state = await mitigation_agent_single_run(first_run_initial_messages)
             oracle_results = validate_oracles(oracles)
+            logger.info(f"oracle results: {oracle_results}")
             if oracle_results[0] is True:
                 # agent succeeds, let's finish here.
+                logger.info("agent succeeds, breaking!")
                 break
             # otherwise, naively retry
+            logger.info(f"agent failed, retrying... {curr_attempt + 1}/{mitigation_agent_max_retry_attempts}")
             curr_attempt += 1
         return last_state
     elif mitigation_agent_retry_mode == "validate":
@@ -105,8 +112,12 @@ async def mitigation_task_main(localization_summary):
         )
         while curr_attempt < mitigation_agent_max_retry_attempts:
             if curr_attempt == 0:
+                logger.info(f"running first try")
                 mitigation_agent_last_state = await mitigation_agent_single_run(first_run_initial_messages)
             else:
+                logger.info(
+                    f"running retries. current attempt: {curr_attempt + 1}/{mitigation_agent_max_retry_attempts}"
+                )
                 # we compose the retry prompts here.
                 last_run_summary = generate_run_summary(mitigation_agent_last_state, llm_summarization_prompt)
                 retry_run_initial_messages = [
@@ -121,14 +132,18 @@ async def mitigation_task_main(localization_summary):
                         )
                     ),
                 ]
+                logger.info(f"composed retry prompts: {retry_run_initial_messages}")
                 mitigation_agent_last_state = await mitigation_agent_retry_run(retry_run_initial_messages)
             oracle_results = validate_oracles(oracles)
             if oracle_results[0] is True:
                 # agent succeeds, let's finish here.
+                logger.info("agent succeeds, breaking!")
                 break
             # otherwise, rollback all changes
             # rollback agent is stateless and "best effort" idempotent, just rollback
             # memory is cleared in the retry_run() method, so the agent can start anew.
+            logger.info(f"agent failed, retrying... {curr_attempt + 1}/{mitigation_agent_max_retry_attempts}")
+            logger.info(f"running rollback agent to reverse progress")
             rollback_agent_last_state = await rollback_agent_main()
             curr_attempt += 1
         return mitigation_agent_last_state, rollback_agent_last_state
