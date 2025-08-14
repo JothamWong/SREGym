@@ -12,19 +12,23 @@ logger = logging.getLogger(__name__)
 
 
 class RollbackAgent(BaseAgent):
-    def __init__(self, llm, config: BaseAgentCfg):
-        super().__init__(llm, config)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tool_node = None
+        self.thinking_prompt_inject_node = "pre_thinking_step"
+        self.thinking_node = "thinking_step"
+        self.tool_calling_prompt_inject_node = "pre_tool_calling_step"
+        self.tool_calling_node = "tool_calling_step"
 
     def build_agent(self):
-        tool_node = StratusToolNode(
+        self.tool_node = StratusToolNode(
             async_tools=self.async_tools,
             sync_tools=self.sync_tools,
-            max_tool_call_one_round=self.max_tool_call_one_round,
         )
 
         # we add the node to the graph
         self.graph_builder.add_node("tool_agent", self.llm_tool_call_step)
-        self.graph_builder.add_node("tool_node", tool_node)
+        self.graph_builder.add_node("tool_node", self.tool_node)
         self.graph_builder.add_node("post_tool_hook", self.post_tool_hook)
 
         self.graph_builder.add_edge(START, "tool_agent")

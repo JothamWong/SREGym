@@ -28,6 +28,12 @@ class BaseAgent:
         self.submit_tool = submit_tool
         self.force_submit_node = "force_submit"
         self.llm_force_submit_tool_call_node = StratusToolNode(sync_tools=[], async_tools=[submit_tool])
+        self.thinking_prompt_inject_node = "pre_thinking_step"
+        self.thinking_node = "thinking_step"
+        self.tool_calling_prompt_inject_node = "pre_tool_calling_step"
+        self.tool_calling_node = "tool_calling_step"
+        self.process_tool_call_node = "process_tool_call"
+        self.post_round_process_node = "post_round_process"
 
     def llm_inference_step(self, messages, tools):
         return self.llm.inference(messages=messages, tools=tools)

@@ -22,12 +22,6 @@ class DiagnosisAgent(BaseAgent):
         super().__init__(**kwargs)
         self.tool_node = None
         self.max_step = kwargs.get("max_step", 20)
-        self.thinking_prompt_inject_node = "pre_thinking_step"
-        self.thinking_node = "thinking_step"
-        self.tool_calling_prompt_inject_node = "pre_tool_calling_step"
-        self.tool_calling_node = "tool_calling_step"
-        self.process_tool_call_node = "process_tool_call"
-        self.post_round_process_node = "post_round_process"
 
     def build_agent(self):
         self.tool_node = StratusToolNode(async_tools=self.async_tools, sync_tools=self.sync_tools)
