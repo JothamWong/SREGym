@@ -116,6 +116,7 @@ class Prometheus:
 
             if self.port_forward_process.poll() is None:
                 print(f"Port forwarding established at {self.port}.")
+                os.environ["PROMETHEUS_PORT"] = str(self.port)
                 break
             else:
                 print("Port forwarding failed. Retrying...")

@@ -194,6 +194,7 @@ class TraceAPI:
         if self.port_forward_process and self.port_forward_process.poll() is None:
             print("Port forwarding established successfully.")
             self.base_url = f"http://127.0.0.1:{self.local_port}"
+            os.environ["JAEGER_PORT"] = str(self.local_port)
         else:
             raise RuntimeError("Port forwarding failed to start")
 
