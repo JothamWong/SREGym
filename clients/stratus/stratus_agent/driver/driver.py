@@ -153,14 +153,14 @@ async def main():
     # run diagnosis agent 2 times
     # here, running the file's main function should suffice.
     # 1 for noop diagnosis
-    logger.info("*" * 25 + "Starting [diagnosis agent] for [NOOP detection]" + "*" * 25)
-    await diagnosis_task_main()
-    logger.info("*" * 25 + "Finished [diagnosis agent]" + "*" * 25)
-
-    # 1 for faulty diagnosis
-    logger.info("*" * 25 + "Starting [diagnosis agent] for [Faulty detection]" + "*" * 25)
-    await diagnosis_task_main()
-    logger.info("*" * 25 + "Finished [diagnosis agent]" + "*" * 25)
+    # logger.info("*" * 25 + "Starting [diagnosis agent] for [NOOP detection]" + "*" * 25)
+    # await diagnosis_task_main()
+    # logger.info("*" * 25 + "Finished [diagnosis agent]" + "*" * 25)
+    #
+    # # 1 for faulty diagnosis
+    # logger.info("*" * 25 + "Starting [diagnosis agent] for [Faulty detection]" + "*" * 25)
+    # await diagnosis_task_main()
+    # logger.info("*" * 25 + "Finished [diagnosis agent]" + "*" * 25)
 
     # run localization agent 1 time for localization
     # (BTS it's just diagnosis agent with different prompts)
@@ -170,7 +170,7 @@ async def main():
     logger.info("*" * 25 + "Finished [localization agent]" + "*" * 25)
 
     file_parent_dir = Path(__file__).resolve().parent.parent
-    localization_agent_config_path = file_parent_dir.parent / "configs" / "mitigation_agent_config.yaml"
+    localization_agent_config_path = file_parent_dir.parent / "configs" / "localization_agent_config.yaml"
     localization_agent_config = yaml.safe_load(open(localization_agent_config_path, "r"))
     localization_agent_prompt_path = file_parent_dir.parent / "configs" / localization_agent_config["prompts_path"]
     localization_agent_prompts = yaml.safe_load(open(localization_agent_prompt_path, "r"))
