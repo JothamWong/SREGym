@@ -10,8 +10,10 @@ import yaml
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from clients.stratus.configs.langgraph_tool_configs import LanggraphToolConfig
-from clients.stratus.stratus_agent.diagnosis_agent import main as diagnosis_task_main
-from clients.stratus.stratus_agent.localization_agent import main as localization_task_main
+from clients.stratus.stratus_agent.diagnosis_agent import single_run_with_predefined_prompts as diagnosis_single_run
+from clients.stratus.stratus_agent.localization_agent import (
+    single_run_with_predefined_prompts as localization_single_run,
+)
 from clients.stratus.stratus_agent.mitigation_agent import (
     generate_run_summary,
 )
@@ -39,6 +41,76 @@ def validate_oracles(oracles: List[BaseOracle]) -> List[bool | List[OracleResult
     if attempt_failed:
         return [False, results]
     return [True, results]
+
+
+def get_app_info():
+    ltc = LanggraphToolConfig()
+    url = ltc.benchmark_app_info_url
+    try:
+        response = requests.get(url)
+        logger.info(f"Response status: {response.status_code}, text: {response.text}")
+        app_info_str = str(response.text)
+        logger.info(f"app info as str: {app_info_str}")
+        app_info = literal_eval(app_info_str)
+        logger.info(f"app info: {app_info}")
+        return app_info
+    except Exception as e:
+        logger.error(f"[submit_mcp] HTTP submission failed: {e}")
+        return "error"
+
+
+async def diagnosis_task_main():
+    logger.info("loading configs")
+    file_parent_dir = Path(__file__).resolve().parent.parent
+    diagnosis_agent_config_path = file_parent_dir.parent / "configs" / "diagnosis_agent_config.yaml"
+    diagnosis_agent_config = yaml.safe_load(open(diagnosis_agent_config_path, "r"))
+    diagnosis_agent_max_step = diagnosis_agent_config["max_step"]
+    diagnosis_agent_prompt_path = file_parent_dir.parent / "configs" / diagnosis_agent_config["prompts_path"]
+    diagnosis_agent_prompts = yaml.safe_load(open(diagnosis_agent_prompt_path, "r"))
+    app_info = get_app_info()
+    app_name = app_info["app_name"]
+    app_description = app_info["descriptions"]
+    app_namespace = app_info["namespace"]
+    first_run_initial_messages = [
+        SystemMessage(diagnosis_agent_prompts["system"]),
+        HumanMessage(
+            diagnosis_agent_prompts["user"].format(
+                max_step=diagnosis_agent_max_step,
+                app_name=app_name,
+                app_description=app_description,
+                app_namespace=app_namespace,
+            )
+        ),
+    ]
+    last_state = await diagnosis_single_run(first_run_initial_messages)
+    return last_state
+
+
+async def localization_task_main():
+    logger.info("loading configs")
+    file_parent_dir = Path(__file__).resolve().parent.parent
+    localization_agent_config_path = file_parent_dir.parent / "configs" / "localization_agent_config.yaml"
+    localization_agent_config = yaml.safe_load(open(localization_agent_config_path, "r"))
+    localization_agent_max_step = localization_agent_config["max_step"]
+    localization_agent_prompt_path = file_parent_dir.parent / "configs" / localization_agent_config["prompts_path"]
+    localization_agent_prompts = yaml.safe_load(open(localization_agent_prompt_path, "r"))
+    app_info = get_app_info()
+    app_name = app_info["app_name"]
+    app_description = app_info["descriptions"]
+    app_namespace = app_info["namespace"]
+    first_run_initial_messages = [
+        SystemMessage(localization_agent_prompts["system"]),
+        HumanMessage(
+            localization_agent_prompts["user"].format(
+                max_step=localization_agent_max_step,
+                app_name=app_name,
+                app_description=app_description,
+                app_namespace=app_namespace,
+            )
+        ),
+    ]
+    last_state = await localization_single_run(first_run_initial_messages)
+    return last_state
 
 
 async def mitigation_task_main(localization_summary):
@@ -75,19 +147,7 @@ async def mitigation_task_main(localization_summary):
 
     logger.info("getting app info")
 
-    ltc = LanggraphToolConfig()
-    url = ltc.benchmark_app_info_url
-    try:
-        response = requests.get(url)
-        logger.info(f"Response status: {response.status_code}, text: {response.text}")
-        app_info_str = str(response.text)
-        logger.info(f"app info as str: {app_info_str}")
-        app_info = literal_eval(app_info_str)
-        logger.info(f"app info: {app_info}")
-    except Exception as e:
-        logger.error(f"[submit_mcp] HTTP submission failed: {e}")
-        return "error"
-    # TODO: get app from benchmark
+    app_info = get_app_info()
     app_name = app_info["app_name"]
     app_description = app_info["descriptions"]
     app_namespace = app_info["namespace"]

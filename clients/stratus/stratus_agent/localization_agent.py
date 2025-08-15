@@ -12,7 +12,7 @@ from clients.stratus.stratus_utils.str_to_tool import str_to_tool
 logger = get_logger()
 
 
-async def main():
+def build_default_localization_agent():
     file_parent_dir = Path(__file__).resolve().parent
     localization_agent_config_path = file_parent_dir.parent / "configs" / "localization_agent_config.yaml"
     localization_agent_config = yaml.safe_load(open(localization_agent_config_path, "r"))
@@ -56,10 +56,10 @@ async def main():
     )
     agent.build_agent()
     agent.save_agent_graph_to_png()
+    return agent
 
-    res = await agent.arun(get_starting_prompts(prompt_path, max_step=max_step))
+
+async def single_run_with_predefined_prompts(init_prompts):
+    agent, prompt_path, max_step = build_default_localization_agent()
+    res = await agent.arun(init_prompts)
     return res
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

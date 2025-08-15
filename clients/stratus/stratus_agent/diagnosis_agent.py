@@ -111,7 +111,7 @@ class DiagnosisAgent(BaseAgent):
         return last_state
 
 
-async def main():
+def build_default_diagnosis_agent():
     file_parent_dir = Path(__file__).resolve().parent
     diagnosis_agent_config_path = file_parent_dir.parent / "configs" / "diagnosis_agent_config.yaml"
     diagnosis_agent_config = yaml.safe_load(open(diagnosis_agent_config_path, "r"))
@@ -155,10 +155,10 @@ async def main():
     )
     agent.build_agent()
     agent.save_agent_graph_to_png()
+    return agent
 
-    res = await agent.arun(get_starting_prompts(prompt_path, max_step=max_step))
+
+async def single_run_with_predefined_prompts(init_prompts):
+    agent, prompt_path, max_step = build_default_diagnosis_agent()
+    res = await agent.arun(init_prompts)
     return res
-
-
-if __name__ == "__main__":
-    generate_run_summary(asyncio.run(main()))
