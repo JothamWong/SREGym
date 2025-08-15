@@ -51,7 +51,7 @@ async def submit_tool(ans: str, tool_call_id: Annotated[str, InjectedToolCallId]
     )
 
 
-@tool(description=submit_tool_docstring)
+@tool("f_submit_tool", description=submit_tool_docstring)
 async def fake_submit_tool(ans: str, tool_call_id: Annotated[str, InjectedToolCallId]) -> Command:
     # makes http call to benchmark submission server
     logging.info(f"_NOT_ submitting to benchmark, answer: {ans}")
