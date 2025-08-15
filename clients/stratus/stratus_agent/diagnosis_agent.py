@@ -155,10 +155,12 @@ def build_default_diagnosis_agent():
     )
     agent.build_agent()
     agent.save_agent_graph_to_png()
-    return agent
+    return agent, prompt_path, max_step
 
 
 async def single_run_with_predefined_prompts(init_prompts):
     agent, prompt_path, max_step = build_default_diagnosis_agent()
     res = await agent.arun(init_prompts)
+    logger.info("Clearing agent's memory")
+    agent.clear_memory()
     return res

@@ -58,22 +58,6 @@ class MitigationAgent(BaseAgent):
         self.memory_saver = MemorySaver()
         self.graph = self.graph_builder.compile(checkpointer=self.memory_saver)
 
-    def clear_memory(self):
-        # source: https://github.com/langchain-ai/langchain/discussions/19744#discussioncomment-13734390
-        thread_id = "1"
-        try:
-            if hasattr(self.memory_saver, "storage") and hasattr(self.memory_saver, "writes"):
-                self.memory_saver.storage.pop(thread_id, None)
-
-                keys_to_remove = [key for key in self.memory_saver.writes.keys() if key[0] == thread_id]
-                for key in keys_to_remove:
-                    self.memory_saver.writes.pop(key, None)
-
-                print(f"Memory cleared for thread_id: {thread_id}")
-                return
-        except Exception as e:
-            logger.error(f"Error clearing InMemorySaver storage for thread_id {thread_id}: {e}")
-
     async def arun(self, starting_prompts):
         """
         Async running an agent
@@ -218,6 +202,7 @@ async def single_run_with_predefined_prompts(init_prompts):
 async def retry_run_with_feedback(feedback_prompts):
     agent, prompt_path, max_step = build_default_mitigation_agent()
     res = await agent.arun(feedback_prompts)
+    logger.info("Clearing agent's memory")
     agent.clear_memory()
     return res
 

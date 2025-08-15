@@ -99,6 +99,24 @@ class BaseAgent:
         with open("./agent_graph.png", "wb") as png:
             png.write(self.graph.get_graph().draw_mermaid_png())
 
+    def clear_memory(self):
+        if not hasattr(self, "memory_saver"):
+            raise RuntimeError("Should not be called on uninitialized agent. Did you call build_agent()?")
+        # source: https://github.com/langchain-ai/langchain/discussions/19744#discussioncomment-13734390
+        thread_id = "1"
+        try:
+            if hasattr(self.memory_saver, "storage") and hasattr(self.memory_saver, "writes"):
+                self.memory_saver.storage.pop(thread_id, None)
+
+                keys_to_remove = [key for key in self.memory_saver.writes.keys() if key[0] == thread_id]
+                for key in keys_to_remove:
+                    self.memory_saver.writes.pop(key, None)
+
+                print(f"Memory cleared for thread_id: {thread_id}")
+                return
+        except Exception as e:
+            logger.error(f"Error clearing InMemorySaver storage for thread_id {thread_id}: {e}")
+
     def run(self, starting_prompts):
         """Running an agent
 
