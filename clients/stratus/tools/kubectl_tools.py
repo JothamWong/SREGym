@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 
 class ExecKubectlCmdSafelyInput(BaseModel):
     command: str = Field(
-        description="The command you want to execute in a CLI to manage "
-        'a k8s cluster. It should start with "kubectl".'
+        description="The command you want to execute in a CLI to manage a k8s cluster. "
+        "It should start with 'kubectl'. Converts natural language to kubectl commands and executes them. "
+        "Can be used to get/describe/edit Kubernetes deployments, services, and other Kubernetes components. "
+        "Only takes one query at a time. Keep queries simple and straight-forward. "
+        "This tool cannot handle complex mutli-step queries. "
+        "Remember that most kubectl queries require a namespace name. "
     )
     tool_call_id: Annotated[str, InjectedToolCallId]
 
