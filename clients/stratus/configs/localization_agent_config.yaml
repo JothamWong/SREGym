@@ -59,6 +59,8 @@ async_tools:
               "kubectl config view",
               "kubectl config current-context",
               "kubectl config get",
+              INTERACTIVE COMMANDS ARE NOT SUPPORTED, e.g. "kubectl edit" 
+              INTERACTIVE FLAGS ARE NOT SUPPORTED, e.g., "kubectl logs -f"
   - name: submit_tool
     description: |
       The tool to submit benchmark results
