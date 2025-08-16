@@ -53,7 +53,6 @@ kubectl_unsupported_commands = [
     "kubectl proxy",  # This will keep running
     "kubectl port-forward",  # This will keep running
     "kubectl cp",  # Should not support file based operations
-    "kubectl logs -f",  # f for streaming, has to exit through sigint.
 ]
 
 # Commands that support dry-run

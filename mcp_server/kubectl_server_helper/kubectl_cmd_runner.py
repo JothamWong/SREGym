@@ -2,15 +2,14 @@ import hashlib
 import logging
 import os
 import time
+
 import bashlex
-from mcp_server.kubectl_server_helper.kubectl import KubeCtl, DryRunResult, DryRunStatus
 
 from mcp_server.configs.kubectl_tool_cfg import KubectlToolCfg
-from mcp_server.kubectl_server_helper.utils import cleanup_kubernetes_yaml, parse_text
+from mcp_server.kubectl_server_helper.cmd_category import kubectl_safe_commands, kubectl_unsupported_commands
+from mcp_server.kubectl_server_helper.kubectl import DryRunResult, DryRunStatus, KubeCtl
 from mcp_server.kubectl_server_helper.rollback_tool import RollbackCommand, RollbackNode, RollbackTool
-from mcp_server.kubectl_server_helper.cmd_category import \
-    kubectl_safe_commands, \
-    kubectl_unsupported_commands
+from mcp_server.kubectl_server_helper.utils import cleanup_kubernetes_yaml, parse_text
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -70,6 +69,9 @@ class KubectlCmdRunner:
             else:
                 raise ValueError(f"Unknown dry run status: {dry_run_result.status}")
             return parse_text(result)
+        except ValueError as ve:
+            logger.error(f"Command Rejected (ValueError): {ve}")
+            return f"Command Rejected (ValueError): {ve}"
         except Exception as exc:
             logger.error(f"Command Rejected: {exc}")
             return f"Command Rejected: {exc}"
@@ -113,8 +115,15 @@ class KubectlCmdRunner:
         parts = list(bashlex.split(command))
         for i, part in enumerate(parts):
             if part in ["--interactive", "-i", "--tty", "-t", "--stdin", "-it"]:
-                raise ValueError(f"Interactive flag detected: {part}. Such commands are not supported. "
-                                 f"Try to use the command non-interactively.")
+                raise ValueError(
+                    f"Interactive flag detected: {part}. Such commands are not supported. "
+                    f"Try to use the command non-interactively."
+                )
+            if command.startswith("kubectl logs -f"):
+                raise ValueError(
+                    f"Interactive flag detected: -f. Such commands are not supported. "
+                    f"Try to use the command non-interactively."
+                )
 
             if part in ["-f", "--filename"] and i + 1 < len(parts) and parts[i + 1] == "-":
                 if not has_redirection:

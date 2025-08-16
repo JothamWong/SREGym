@@ -125,7 +125,11 @@ class ExecReadOnlyKubectlCmd(BaseTool):
                 f"Your command {command} is not a read-only kubectl command. "
                 f"Available Read-only Commands: {kubectl_read_only_cmds}."
             )
-
+        elif command.startswith("kubectl logs -f"):
+            logger.info(f"agent calling interactive read-only command")
+            text_result = (
+                f"Your command {command} is an _interactive_ read-only kubectl command. " f"It is not supported!"
+            )
         else:
             logger.info(
                 f"calling mcp exec_kubectl_cmd_safely from "
