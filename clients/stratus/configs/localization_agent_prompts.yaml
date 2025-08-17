@@ -44,8 +44,8 @@ system: >
     - **ClusterRoleBinding and RoleBinding**: Bind roles to users or groups for authorization.
     - **ServiceAccount**: Associates processes in pods with permissions for accessing the Kubernetes API.
   
-  After you finished, submit the detected faulty components to the orchestrator for evaluation.
-  The submission should be list of faulty components (i.e., service names).
+    After you finished, submit the detected faulty components to the orchestrator for evaluation.
+    The submission should be list of faulty components (i.e., service names).
 
 user: >
   You will be working this application:
