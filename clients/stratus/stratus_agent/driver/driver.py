@@ -128,7 +128,8 @@ async def diagnosis_task_main():
     agent_exec_stats["steps"] = last_state.values["num_steps"]
     agent_exec_stats["num_retry_attempts"] = "N/A"
     agent_exec_stats["rollback_stack"] = "N/A"
-    agent_exec_stats["last_state"] = last_state
+    # agent_exec_stats["last_state"] = last_state
+    logger.info(f"Finished diagnosis agent run, output dict: {agent_exec_stats}")
     return agent_exec_stats
 
 
@@ -155,8 +156,21 @@ async def localization_task_main():
             )
         ),
     ]
-    last_state = await localization_single_run(first_run_initial_messages)
-    return last_state
+    start_time = time.perf_counter()
+    agent, last_state = await localization_single_run(first_run_initial_messages)
+    agent_time = time.perf_counter() - start_time
+    agent_exec_stats = dict()
+    agent_exec_stats["input_tokens"] = agent.callback.usage_metadata[0]["input_tokens"]
+    agent_exec_stats["output_tokens"] = agent.callback.usage_metadata[0]["output_tokens"]
+    agent_exec_stats["total_tokens"] = agent.callback.usage_metadata[0]["total_tokens"]
+    # assuming time in seconds.
+    agent_exec_stats["time"] = str(agent_time)
+    agent_exec_stats["steps"] = last_state.values["num_steps"]
+    agent_exec_stats["num_retry_attempts"] = "N/A"
+    agent_exec_stats["rollback_stack"] = "N/A"
+    # agent_exec_stats["last_state"] = last_state
+    logger.info(f"Finished localization agent run, output dict: {agent_exec_stats}")
+    return agent_exec_stats, last_state
 
 
 async def mitigation_task_main(localization_summary):
@@ -218,12 +232,25 @@ async def mitigation_task_main(localization_summary):
             )
         ),
     ]
-
+    start_time = time.perf_counter()
     logger.info(f"running in retry mode: [{mitigation_agent_retry_mode}]")
     # mitigation task in plain English:
     if mitigation_agent_retry_mode == "none":
         # if the retry mode is none, just run mitigation agent once.
-        await mitigation_agent_single_run(first_run_initial_messages)
+        agent, last_state = await mitigation_agent_single_run(first_run_initial_messages)
+        agent_time = time.perf_counter() - start_time
+        agent_exec_stats = dict()
+        agent_exec_stats["input_tokens"] = agent.callback.usage_metadata[0]["input_tokens"]
+        agent_exec_stats["output_tokens"] = agent.callback.usage_metadata[0]["output_tokens"]
+        agent_exec_stats["total_tokens"] = agent.callback.usage_metadata[0]["total_tokens"]
+        # assuming time in seconds.
+        agent_exec_stats["time"] = str(agent_time)
+        agent_exec_stats["steps"] = last_state.values["num_steps"]
+        agent_exec_stats["num_retry_attempts"] = "N/A"
+        agent_exec_stats["rollback_stack"] = "N/A"
+        # agent_exec_stats["last_state"] = last_state
+        logger.info(f"Finished localization agent run, output dict: {agent_exec_stats}")
+
     elif mitigation_agent_retry_mode == "naive":
         # if the retry mode is naive, run mitigation agent with retry but no rollback agent.
         curr_attempt = 0
@@ -337,19 +364,32 @@ async def main():
     agent_steps.append(diagnosis_agent_exec_stats["steps"])
     agent_retry_attempts.append(diagnosis_agent_exec_stats["num_retry_attempts"])
     agent_rollback_stack.append(diagnosis_agent_exec_stats["rollback_stack"])
-
     logger.info("*" * 25 + " Finished [diagnosis agent] " + "*" * 25)
     # #
     # # # 1 for faulty diagnosis
     logger.info("*" * 25 + " Starting [diagnosis agent] for [Faulty detection] " + "*" * 25)
-    await diagnosis_task_main()
+    diagnosis_agent_exec_stats = await diagnosis_task_main()
+    agent_in_tokens.append(diagnosis_agent_exec_stats["input_tokens"])
+    agent_out_tokens.append(diagnosis_agent_exec_stats["output_tokens"])
+    agent_total_tokens.append(diagnosis_agent_exec_stats["total_tokens"])
+    agent_times.append(diagnosis_agent_exec_stats["time"])
+    agent_steps.append(diagnosis_agent_exec_stats["steps"])
+    agent_retry_attempts.append(diagnosis_agent_exec_stats["num_retry_attempts"])
+    agent_rollback_stack.append(diagnosis_agent_exec_stats["rollback_stack"])
     logger.info("*" * 25 + " Finished [diagnosis agent] " + "*" * 25)
     #
     # # run localization agent 1 time for localization
     # # (BTS it's just diagnosis agent with different prompts)
     # # here, running the file's main function should suffice
     logger.info("*" * 25 + " Starting [localization agent] for [localization] " + "*" * 25)
-    last_state = await localization_task_main()
+    localization_agent_exec_stats, localization_agent_last_state = await localization_task_main()
+    agent_in_tokens.append(localization_agent_exec_stats["input_tokens"])
+    agent_out_tokens.append(localization_agent_exec_stats["output_tokens"])
+    agent_total_tokens.append(localization_agent_exec_stats["total_tokens"])
+    agent_times.append(localization_agent_exec_stats["time"])
+    agent_steps.append(localization_agent_exec_stats["steps"])
+    agent_retry_attempts.append(localization_agent_exec_stats["num_retry_attempts"])
+    agent_rollback_stack.append(localization_agent_exec_stats["rollback_stack"])
     logger.info("*" * 25 + " Finished [localization agent] " + "*" * 25)
 
     file_parent_dir = Path(__file__).resolve().parent.parent
@@ -358,14 +398,14 @@ async def main():
     localization_agent_prompt_path = file_parent_dir.parent / "configs" / localization_agent_config["prompts_path"]
     localization_agent_prompts = yaml.safe_load(open(localization_agent_prompt_path, "r"))
     localization_fault_summary = generate_run_summary(
-        last_state, localization_agent_prompts["localization_summary_prompt"]
+        localization_agent_last_state, localization_agent_prompts["localization_summary_prompt"]
     )
 
     # run mitigation task 1 time for mitigation
     # it includes retry logics
-    logger.info("*" * 25 + "Starting [mitigation agent] for [mitigation]" + "*" * 25)
-    await mitigation_task_main(localization_fault_summary)
-    logger.info("*" * 25 + "Finished [mitigation agent]" + "*" * 25)
+    logger.info("*" * 25 + " Starting [mitigation agent] for [mitigation] " + "*" * 25)
+    mitigation_agent_exec_stats = await mitigation_task_main(localization_fault_summary)
+    logger.info("*" * 25 + " Finished [mitigation agent] " + "*" * 25)
 
     await asyncio.sleep(10)
 

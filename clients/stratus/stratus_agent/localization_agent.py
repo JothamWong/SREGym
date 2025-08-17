@@ -64,4 +64,4 @@ async def single_run_with_predefined_prompts(init_prompts):
     res = await agent.arun(init_prompts)
     logger.info("Clearing agent's memory")
     agent.clear_memory()
-    return res
+    return agent, res
