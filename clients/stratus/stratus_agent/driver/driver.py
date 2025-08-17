@@ -6,6 +6,7 @@ from ast import literal_eval
 from pathlib import Path
 from typing import List
 
+import pandas as pd
 import requests
 import yaml
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -115,8 +116,20 @@ async def diagnosis_task_main():
             )
         ),
     ]
-    last_state = await diagnosis_single_run(first_run_initial_messages)
-    return last_state
+    start_time = time.perf_counter()
+    agent, last_state = await diagnosis_single_run(first_run_initial_messages)
+    agent_time = time.perf_counter() - start_time
+    agent_exec_stats = dict()
+    agent_exec_stats["input_tokens"] = agent.callback.usage_metadata[0]["input_tokens"]
+    agent_exec_stats["output_tokens"] = agent.callback.usage_metadata[0]["output_tokens"]
+    agent_exec_stats["total_tokens"] = agent.callback.usage_metadata[0]["total_tokens"]
+    # assuming time in seconds.
+    agent_exec_stats["time"] = str(agent_time)
+    agent_exec_stats["steps"] = last_state.values["num_steps"]
+    agent_exec_stats["num_retry_attempts"] = "N/A"
+    agent_exec_stats["rollback_stack"] = "N/A"
+    agent_exec_stats["last_state"] = last_state
+    return agent_exec_stats
 
 
 async def localization_task_main():
@@ -306,9 +319,26 @@ async def main():
     # run diagnosis agent 2 times
     # here, running the file's main function should suffice.
     # 1 for noop diagnosis
+    agent_output_df = pd.DataFrame()
+    agent_names = ["diagnosis_agent_noop", "diagnosis_agent_faulty", "localization_agent", "mitigation_agent"]
+    agent_in_tokens = []
+    agent_out_tokens = []
+    agent_total_tokens = []
+    agent_times = []
+    agent_steps = []
+    agent_retry_attempts = []
+    agent_rollback_stack = []
     logger.info("*" * 25 + " Starting [diagnosis agent] for [NOOP detection] " + "*" * 25)
-    await diagnosis_task_main()
-    logger.info("*" * 25 + "Finished [diagnosis agent]" + "*" * 25)
+    diagnosis_agent_exec_stats = await diagnosis_task_main()
+    agent_in_tokens.append(diagnosis_agent_exec_stats["input_tokens"])
+    agent_out_tokens.append(diagnosis_agent_exec_stats["output_tokens"])
+    agent_total_tokens.append(diagnosis_agent_exec_stats["total_tokens"])
+    agent_times.append(diagnosis_agent_exec_stats["time"])
+    agent_steps.append(diagnosis_agent_exec_stats["steps"])
+    agent_retry_attempts.append(diagnosis_agent_exec_stats["num_retry_attempts"])
+    agent_rollback_stack.append(diagnosis_agent_exec_stats["rollback_stack"])
+
+    logger.info("*" * 25 + " Finished [diagnosis agent] " + "*" * 25)
     # #
     # # # 1 for faulty diagnosis
     logger.info("*" * 25 + " Starting [diagnosis agent] for [Faulty detection] " + "*" * 25)
