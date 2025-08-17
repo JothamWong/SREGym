@@ -131,7 +131,10 @@ def build_default_mitigation_agent():
         for sync_tool_struct in mitigation_agent_config["sync_tools"]:
             mitigation_agent_sync_tools.append(str_to_tool(sync_tool_struct))
             mitigation_agent_tool_descriptions += (
-                sync_tool_struct["name"] + "\n\n" + sync_tool_struct["description"] + "\n\n"
+                f"tool name: {sync_tool_struct["name"]}"
+                + "\n\n"
+                + f"tool descriptions {sync_tool_struct["description"]}"
+                + "\n\n"
             )
     else:
         mitigation_agent_sync_tools = None
@@ -139,7 +142,10 @@ def build_default_mitigation_agent():
         for async_tool_struct in mitigation_agent_config["async_tools"]:
             mitigation_agent_async_tools.append(str_to_tool(async_tool_struct))
             mitigation_agent_tool_descriptions += (
-                async_tool_struct["name"] + "\n\n" + async_tool_struct["description"] + "\n\n"
+                f"tool name: {async_tool_struct["name"]}"
+                + "\n\n"
+                + f"tool description: {async_tool_struct["description"]}"
+                + "\n\n"
             )
     else:
         mitigation_agent_async_tools = None
