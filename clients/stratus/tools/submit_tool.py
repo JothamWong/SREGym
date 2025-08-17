@@ -1,3 +1,4 @@
+import ast
 import logging
 from contextlib import AsyncExitStack
 from typing import Annotated
@@ -46,6 +47,8 @@ async def submit_tool(
             "ans": ans,
         },
     )
+    result = result.content[0].text
+    result = ast.literal_eval(result)
 
     await exit_stack.aclose()
     if result["status"] != "200":
