@@ -168,19 +168,88 @@ class VirtualizationFaultInjector(FaultInjector):
             self.kubectl.exec_command(apply_command)
             print(f"Removed nodeSelector for service {service} and redeployed.")
 
-    # V.5 - redeploy without deleting the PV - only for HotelReservation
-    def inject_redeploy_without_pv(self, app: Application):
-        """Inject a fault to delete the namespace without deleting the PV."""
-        self.kubectl.delete_namespace(self.namespace)
-        print(f"Deleting namespace {self.namespace} without deleting the PV.")
-        time.sleep(15)
-        print(f"Redeploying {self.namespace}.")
-        app = type(app)()
-        app.deploy_without_wait()
+    # --- V.5 - PVC claim name mismatch (per-service) ---
+    def inject_pvc_claim_mismatch(self, microservices: list[str]):
+        """Make pods Pending by pointing Deployments at a non-existent PVC claim."""
+        for service in microservices:
+            dep = self._get_deployment_yaml(service)
+            original = copy.deepcopy(dep)
 
-    def recover_redeploy_without_pv(self, app: Application):
-        app.cleanup()
-        # pass
+            pod_spec = dep.get("spec", {}).get("template", {}).get("spec", {})
+            volumes = pod_spec.get("volumes", [])
+            changed = False
+
+            for v in volumes:
+                pvc = v.get("persistentVolumeClaim")
+                if pvc and "claimName" in pvc:
+                    pvc["claimName"] = pvc["claimName"] + "-broken"
+                    changed = True
+
+            if not changed:
+                print(f"[{service}] No PVC volumes found; skipping.")
+                continue
+
+            modified = self._write_yaml_to_file(service, dep)
+
+            # Replace the deployment with the modified one
+            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl apply -f {modified} -n {self.namespace}")
+
+            # Save the original for recovery
+            self._write_yaml_to_file(service, original)
+
+            print(f"[{service}] Patched claimName -> (…-broken). Pods should go Pending.")
+
+        self.kubectl.wait_for_stable(self.namespace)
+
+    def recover_pvc_claim_mismatch(self, microservices: list[str]):
+        """Restore the original Deployment YAML saved in /tmp/{svc}_modified.yaml."""
+        for service in microservices:
+            orig_path = f"/tmp/{service}_modified.yaml"
+            self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            self.kubectl.exec_command(f"kubectl apply -f {orig_path} -n {self.namespace}")
+            print(f"[{service}] Restored original claimName.")
+
+        self.kubectl.wait_for_ready(self.namespace)
+
+    # --- V.6 - Storage provisioner outage (cluster-scoped) ---
+    # TODO: This fault does not work because the PVCs are bound before fault injection
+    # def inject_storage_provisioner_outage(self):
+    #     """
+    #     Make all new PVCs Pending by disabling common local provisioners.
+    #     No-op if a target provisioner isn't present.
+    #     """
+    #     cmds = [
+    #         # OpenEBS localPV provisioner
+    #         "kubectl -n openebs scale deploy openebs-localpv-provisioner --replicas=0",
+    #         # Rancher/Kind local-path provisioner
+    #         "kubectl -n local-path-storage scale deploy local-path-provisioner --replicas=0",
+    #     ]
+    #     for c in cmds:
+    #         try:
+    #             self.kubectl.exec_command(c)
+    #             print(f"Ran: {c}")
+    #         except Exception as e:
+    #             print(f"Skipping: {c} ({e})")
+
+    #     print("Storage provisioner outage injected.")
+
+    # def recover_storage_provisioner_outage(self):
+    #     cmds = [
+    #         "kubectl -n openebs scale deploy openebs-localpv-provisioner --replicas=1",
+    #         "kubectl -n local-path-storage scale deploy local-path-provisioner --replicas=1",
+    #         "kubectl -n kube-system scale deploy hostpath-provisioner --replicas=1",
+    #     ]
+    #     for c in cmds:
+    #         try:
+    #             self.kubectl.exec_command(c)
+    #             print(f"Ran: {c}")
+    #         except Exception as e:
+    #             print(f"Skipping: {c} ({e})")
+
+    #     # Give the controller a moment and ensure PVCs start binding again
+    #     self.kubectl.wait_for_stable(self.namespace)
+    #     print("✅ Storage provisioner outage recovered.")
 
     # V.6 - wrong binary usage incident
     def inject_wrong_bin_usage(self, microservices: list[str]):
@@ -698,9 +767,9 @@ class VirtualizationFaultInjector(FaultInjector):
     def inject_env_variable_leak(self, microservices: list[str]):
         for microservice in microservices:
             configmap_name = None
-            if self.namespace == "test-social-network":
+            if self.namespace == "social-network":
                 configmap_name = "media-mongodb"
-            elif self.namespace == "test-hotel-reservation":
+            elif self.namespace == "hotel-reservation":
                 configmap_name = "mongo-geo-script"
             else:
                 raise ValueError(f"Unknown namespace: {self.namespace}")
@@ -1255,119 +1324,6 @@ class VirtualizationFaultInjector(FaultInjector):
         # Scale deployment to 1 replica (if needed)
         self.kubectl.scale_deployment(name=deployment_name, namespace=namespace, replicas=1)
 
-    ############# HELPER FUNCTIONS ################
-    def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
-        for service in microservices:
-            command = (
-                f"kubectl wait --for=condition=ready pod -l app={service} -n {self.namespace} --timeout={timeout}s"
-            )
-            result = self.kubectl.exec_command(command)
-            print(f"Wait result for {service}: {result}")
-
-    def _modify_target_port_config(self, from_port: int, to_port: int, configs: dict):
-        for port in configs["spec"]["ports"]:
-            if port.get("targetPort") == from_port:
-                port["targetPort"] = to_port
-
-        return configs
-
-    def _get_values_yaml(self, service_name: str):
-        kubectl = KubeCtl()
-        values_yaml = kubectl.exec_command(f"kubectl get configmap {service_name} -n {self.testbed} -o yaml")
-        return yaml.safe_load(values_yaml)
-
-    def _enable_tls(self, values_yaml: dict):
-        values_yaml["net"] = {
-            "tls": {
-                "mode": "requireTLS",
-                "certificateKeyFile": "/etc/tls/tls.pem",
-                "CAFile": "/etc/tls/ca.crt",
-            }
-        }
-        return yaml.dump(values_yaml)
-
-    def _apply_modified_yaml(self, service_name: str, modified_yaml: str):
-        modified_yaml_path = f"/tmp/{service_name}-values.yaml"
-        with open(modified_yaml_path, "w") as f:
-            f.write(modified_yaml)
-
-        kubectl = KubeCtl()
-        kubectl.exec_command(
-            f"kubectl create configmap {service_name} -n {self.testbed} --from-file=values.yaml={modified_yaml_path} --dry-run=client -o yaml | kubectl apply -f -"
-        )
-        kubectl.exec_command(f"kubectl rollout restart deployment {service_name} -n {self.testbed}")
-
-    def _get_deployment_yaml(self, service_name: str):
-        deployment_yaml = self.kubectl.exec_command(
-            f"kubectl get deployment {service_name} -n {self.namespace} -o yaml"
-        )
-        return yaml.safe_load(deployment_yaml)
-
-    def _get_service_yaml(self, service_name: str):
-        deployment_yaml = self.kubectl.exec_command(f"kubectl get service {service_name} -n {self.namespace} -o yaml")
-        return yaml.safe_load(deployment_yaml)
-
-    def _change_node_selector(self, deployment_yaml: dict, node_name: str):
-        if "spec" in deployment_yaml and "template" in deployment_yaml["spec"]:
-            deployment_yaml["spec"]["template"]["spec"]["nodeSelector"] = {"kubernetes.io/hostname": node_name}
-        return yaml.dump(deployment_yaml)
-
-    def _write_yaml_to_file(self, service_name: str, yaml_content: dict):
-        """Helper function to write YAML content to a temporary file."""
-        import yaml
-
-        file_path = f"/tmp/{service_name}_modified.yaml"
-        with open(file_path, "w") as file:
-            yaml.dump(yaml_content, file)
-        return file_path
-
-    def _wait_for_dns_policy_propagation(
-        self, service: str, external_ns: str, expect_external: bool, sleep: int = 2, max_wait: int = 120
-    ):
-
-        waited = 0
-        while waited < max_wait:
-
-            try:
-                deploy = self.kubectl.apps_v1_api.read_namespaced_deployment(service, self.namespace)
-                selector_dict = deploy.spec.selector.match_labels or {}
-                label_selector = ",".join([f"{k}={v}" for k, v in selector_dict.items()]) if selector_dict else None
-            except Exception:
-                label_selector = None
-
-            pods = self.kubectl.core_v1_api.list_namespaced_pod(self.namespace, label_selector=label_selector)
-
-            target_pods = [pod.metadata.name for pod in pods.items if (label_selector or service in pod.metadata.name)]
-
-            if not target_pods:
-                time.sleep(sleep)
-                waited += sleep
-                continue
-
-            state_ok = True
-
-            for pod in target_pods:
-                try:
-                    resolv = self.kubectl.exec_command(
-                        f"kubectl exec {pod} -n {self.namespace} -- cat /etc/resolv.conf"
-                    )
-                except Exception:
-                    state_ok = False
-                    break
-                has_external = external_ns in resolv
-
-                if expect_external != has_external:
-                    state_ok = False
-                    break
-
-            if state_ok:
-                return
-
-            time.sleep(sleep)
-            waited += sleep
-
-        print(f"DNS policy propagation check for service '{service}' failed after {max_wait}s.")
-
     def deploy_custom_service(self, service_name: str, script_path: str):
         print(f"Deploying {service_name} Service...................................")
         import tempfile
@@ -1502,6 +1458,134 @@ class VirtualizationFaultInjector(FaultInjector):
         self.kubectl.wait_for_stable(self.namespace)
         print(f"Pods for {microservices} are back to Running")
 
+    def inject_persistent_volume_affinity_violation(self, microservices: list[str]):
+        nodes = [
+            node.metadata.name
+            for node in self.kubectl.list_nodes().items
+            if "node-role.kubernetes.io/control-plane" not in node.metadata.labels
+        ]
+
+        if len(nodes) < 2:
+            raise RuntimeError("Need 2 worker nodes for this fault to be injected.")
+
+        nodeA, nodeB = nodes[0], nodes[1]
+
+        for service in microservices:
+            deployment_yaml = self._get_deployment_yaml(service)
+            original_deployment_yaml = copy.deepcopy(deployment_yaml)
+
+            # Create a PV that's bound to node A
+            pv_manifest = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolume",
+                "metadata": {"name": "temp-pv"},
+                "spec": {
+                    "capacity": {"storage": "1Gi"},
+                    "accessModes": ["ReadWriteOnce"],
+                    "persistentVolumeReclaimPolicy": "Delete",
+                    "storageClassName": "",
+                    "hostPath": {"path": f"/tmp/data/volumes/temp-pv"},
+                    "nodeAffinity": {
+                        "required": {
+                            "nodeSelectorTerms": [
+                                {
+                                    "matchExpressions": [
+                                        {
+                                            "key": "kubernetes.io/hostname",
+                                            "operator": "In",
+                                            "values": [nodeA],
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    "claimRef": {"name": "temp-pvc", "namespace": self.namespace},
+                },
+            }
+
+            pv_json = json.dumps(pv_manifest)
+            self.kubectl.exec_command(f"kubectl apply -f - <<EOF\n{pv_json}\nEOF")
+            print(f"Created PV temp-pv for fault injection")
+
+            # Create a PVC bound to the PV above
+            pvc_manifest = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {"name": "temp-pvc", "namespace": self.namespace},
+                "spec": {
+                    "storageClassName": "",
+                    "volumeName": "temp-pv",
+                    "accessModes": ["ReadWriteOnce"],
+                    "resources": {"requests": {"storage": "1Gi"}},
+                },
+            }
+
+            pvc_json = json.dumps(pvc_manifest)
+            self.kubectl.exec_command(f"kubectl apply -f - <<EOF\n{pvc_json}\nEOF")
+            print(f"Created PVC temp-pvc for fault injection")
+
+            pod_spec = deployment_yaml.get("spec", {}).get("template", {}).get("spec", {})
+
+            self._change_node_selector(deployment_yaml=deployment_yaml, node_name=nodeB)
+
+            if "volumes" not in pod_spec:
+                pod_spec["volumes"] = []
+            pod_spec["volumes"].append(
+                {
+                    "name": f"{service}-volume",
+                    "persistentVolumeClaim": {"claimName": "temp-pvc"},
+                }
+            )
+
+            containers = pod_spec.get("containers", [])
+            if containers:
+                if "volumeMounts" not in containers[0]:
+                    containers[0]["volumeMounts"] = []
+                containers[0]["volumeMounts"].append(
+                    {
+                        "name": f"{service}-volume",
+                        "mountPath": f"/{service}-data",
+                    }
+                )
+
+            modified_yaml_path = self._write_yaml_to_file(service, deployment_yaml)
+
+            delete_result = self.kubectl.exec_command(f"kubectl delete deployment {service} -n {self.namespace}")
+            print(f"Delete result for {service}: {delete_result}")
+
+            apply_result = self.kubectl.exec_command(f"kubectl apply -f {modified_yaml_path} -n {self.namespace}")
+            print(f"Apply result for {service}: {apply_result}")
+
+            self._write_yaml_to_file(service, original_deployment_yaml)
+
+            print(f"Injected persistent volume affinity conflict fault for {service}")
+
+    def recover_persistent_volume_affinity_violation(self, microservices: list[str]):
+        for service in microservices:
+            original_yaml_path = f"/tmp/{service}_modified.yaml"
+
+            delete_command = f"kubectl delete --ignore-not-found=true deployment {service} -n {self.namespace}"
+            delete_pv_command = f"kubectl delete --ignore-not-found=true pv temp-pv"
+            delete_pvc_command = f"kubectl delete --ignore-not-found=true pvc temp-pvc -n {self.namespace}"
+            apply_command = f"kubectl apply -f {original_yaml_path} -n {self.namespace}"
+
+            delete_result = self.kubectl.exec_command(delete_command)
+            print(f"Delete result for {service}: {delete_result}")
+
+            delete_pvc_result = self.kubectl.exec_command(delete_pvc_command)
+            print(f"Delete PVC result: {delete_pvc_result}")
+
+            delete_pv_result = self.kubectl.exec_command(delete_pv_command)
+            print(f"Delete PV result: {delete_pv_result}")
+
+            apply_result = self.kubectl.exec_command(apply_command)
+            print(f"Apply result for {service}: {apply_result}")
+
+            self.kubectl.wait_for_ready(self.namespace)
+
+            print(f"Recovered from persistent volume affinity violation fault for service: {service}")
+
     def inject_pod_anti_affinity_deadlock(self, microservices: list[str]):
         """
         Inject a fault that creates pod anti-affinity deadlock.
@@ -1581,9 +1665,122 @@ class VirtualizationFaultInjector(FaultInjector):
             print(f"  - Removed anti-affinity rules")
             print(f"  - Reset replicas to 1")
 
+    ############# HELPER FUNCTIONS ################
+    def _wait_for_pods_ready(self, microservices: list[str], timeout: int = 30):
+        for service in microservices:
+            command = (
+                f"kubectl wait --for=condition=ready pod -l app={service} -n {self.namespace} --timeout={timeout}s"
+            )
+            result = self.kubectl.exec_command(command)
+            print(f"Wait result for {service}: {result}")
+
+    def _modify_target_port_config(self, from_port: int, to_port: int, configs: dict):
+        for port in configs["spec"]["ports"]:
+            if port.get("targetPort") == from_port:
+                port["targetPort"] = to_port
+
+        return configs
+
+    def _get_values_yaml(self, service_name: str):
+        kubectl = KubeCtl()
+        values_yaml = kubectl.exec_command(f"kubectl get configmap {service_name} -n {self.testbed} -o yaml")
+        return yaml.safe_load(values_yaml)
+
+    def _enable_tls(self, values_yaml: dict):
+        values_yaml["net"] = {
+            "tls": {
+                "mode": "requireTLS",
+                "certificateKeyFile": "/etc/tls/tls.pem",
+                "CAFile": "/etc/tls/ca.crt",
+            }
+        }
+        return yaml.dump(values_yaml)
+
+    def _apply_modified_yaml(self, service_name: str, modified_yaml: str):
+        modified_yaml_path = f"/tmp/{service_name}-values.yaml"
+        with open(modified_yaml_path, "w") as f:
+            f.write(modified_yaml)
+
+        kubectl = KubeCtl()
+        kubectl.exec_command(
+            f"kubectl create configmap {service_name} -n {self.testbed} --from-file=values.yaml={modified_yaml_path} --dry-run=client -o yaml | kubectl apply -f -"
+        )
+        kubectl.exec_command(f"kubectl rollout restart deployment {service_name} -n {self.testbed}")
+
+    def _get_deployment_yaml(self, service_name: str):
+        deployment_yaml = self.kubectl.exec_command(
+            f"kubectl get deployment {service_name} -n {self.namespace} -o yaml"
+        )
+        return yaml.safe_load(deployment_yaml)
+
+    def _get_service_yaml(self, service_name: str):
+        deployment_yaml = self.kubectl.exec_command(f"kubectl get service {service_name} -n {self.namespace} -o yaml")
+        return yaml.safe_load(deployment_yaml)
+
+    def _change_node_selector(self, deployment_yaml: dict, node_name: str):
+        if "spec" in deployment_yaml and "template" in deployment_yaml["spec"]:
+            deployment_yaml["spec"]["template"]["spec"]["nodeSelector"] = {"kubernetes.io/hostname": node_name}
+        return yaml.dump(deployment_yaml)
+
+    def _write_yaml_to_file(self, service_name: str, yaml_content: dict):
+        """Helper function to write YAML content to a temporary file."""
+        import yaml
+
+        file_path = f"/tmp/{service_name}_modified.yaml"
+        with open(file_path, "w") as file:
+            yaml.dump(yaml_content, file)
+        return file_path
+
+    def _wait_for_dns_policy_propagation(
+        self, service: str, external_ns: str, expect_external: bool, sleep: int = 2, max_wait: int = 120
+    ):
+
+        waited = 0
+        while waited < max_wait:
+
+            try:
+                deploy = self.kubectl.apps_v1_api.read_namespaced_deployment(service, self.namespace)
+                selector_dict = deploy.spec.selector.match_labels or {}
+                label_selector = ",".join([f"{k}={v}" for k, v in selector_dict.items()]) if selector_dict else None
+            except Exception:
+                label_selector = None
+
+            pods = self.kubectl.core_v1_api.list_namespaced_pod(self.namespace, label_selector=label_selector)
+
+            target_pods = [pod.metadata.name for pod in pods.items if (label_selector or service in pod.metadata.name)]
+
+            if not target_pods:
+                time.sleep(sleep)
+                waited += sleep
+                continue
+
+            state_ok = True
+
+            for pod in target_pods:
+                try:
+                    resolv = self.kubectl.exec_command(
+                        f"kubectl exec {pod} -n {self.namespace} -- cat /etc/resolv.conf"
+                    )
+                except Exception:
+                    state_ok = False
+                    break
+                has_external = external_ns in resolv
+
+                if expect_external != has_external:
+                    state_ok = False
+                    break
+
+            if state_ok:
+                return
+
+            time.sleep(sleep)
+            waited += sleep
+
+        print(f"DNS policy propagation check for service '{service}' failed after {max_wait}s.")
+
 
 if __name__ == "__main__":
-    namespace = "test-social-network"
+    namespace = "social-network"
     microservices = ["mongodb-geo"]
     # microservices = ["geo"]
     fault_type = "auth_miss_mongodb"
