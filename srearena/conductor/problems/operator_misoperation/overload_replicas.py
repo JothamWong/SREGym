@@ -4,31 +4,39 @@
 
 # Only a few pods (e.g., 4 out of 100,000 replicas requested) are created successfully.
 
+
 import time
 from datetime import datetime, timedelta
 from typing import Any
 
-from srearena.conductor.evaluators.quantitative import *
-from srearena.conductor.tasks import *
+from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_operator import K8SOperatorFaultInjector
-from srearena.service.apps.tidb_cluster_operator_depr import TiDBCluster
-from srearena.session import SessionItem
+from srearena.paths import TARGET_MICROSERVICES
+from srearena.service.apps.fleet_cast import FleetCast
+from srearena.service.kubectl import KubeCtl
+from srearena.utils.decorators import mark_fault_injected
 
-
-class K8SOperatorOverloadReplicasBaseTask:
-    def __init__(self):
+class K8SOperatorOverloadReplicasFault(Problem):
+    def __init__(self, faulty_service="tidb-app"):
         self.injector = K8SOperatorFaultInjector("tidb-cluster")
-        self.app = TiDBCluster()
-        self.faulty_cr = "tidbclusters"
+        self.app = FleetCast()
+        super().__init__(app=self.app, namespace=self.app.namespace)
+        self.faulty_service= faulty_service
+        self.kubectl = KubeCtl()
+        self.app.create_workload()
+       
 
+    @mark_fault_injected
     def inject_fault(self):
         print("== Fault Injection ==")
-        self.injector._inject("overload_replicas")
+        injector = K8SOperatorFaultInjector(namespace=self.namespace)
+        injector.inject_overload_replicas
         print(f"Injecting overload replica failure of the TiDB cluster\n")
-
+    @mark_fault_injected
     def recover_fault(self):
         print("== Fault Recovery ==")
-        self.injector._recover("overload_replicas")
+        injector = K8SOperatorFaultInjector(namespace=self.namespace)
+        injector.recover_overload_replicas()
         print(f"Recovered overload replica failure of the TiDB cluster\n")
 
 

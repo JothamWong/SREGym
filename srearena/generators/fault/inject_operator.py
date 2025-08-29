@@ -18,6 +18,7 @@ class K8SOperatorFaultInjector(FaultInjector):
             yaml.dump(cr_yaml, file)
 
         command = f"kubectl apply -f {yaml_path} -n {self.namespace}"
+        print(f"Namespace: {self.namespace}")
         result = self.kubectl.exec_command(command)
         print(f"Injected {cr_name}: {result}")
 

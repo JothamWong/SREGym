@@ -6,28 +6,38 @@ import time
 from datetime import datetime, timedelta
 from typing import Any
 
-from srearena.conductor.evaluators.quantitative import *
-from srearena.conductor.tasks import *
+from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_operator import K8SOperatorFaultInjector
-from srearena.service.apps.tidb_cluster_operator_depr import TiDBCluster
-from srearena.session import SessionItem
+from srearena.paths import TARGET_MICROSERVICES
+from srearena.service.apps.fleet_cast import FleetCast
+from srearena.service.kubectl import KubeCtl
+from srearena.utils.decorators import mark_fault_injected
 
 
-class K8SOperatorInvalidAffinityTolerationBaseTask:
-    def __init__(self):
-        self.injector = K8SOperatorFaultInjector("tidb-cluster")
-        self.app = TiDBCluster()
-        self.faulty_cr = "tidbclusters"
+class K8SOperatorInvalidAffinityTolerationFault(Problem):
+    def __init__(self, faulty_service="tidb-app"):
+        app = FleetCast()
+        print("App's namespace:", app.namespace)
+        super().__init__(app=app, namespace='tidb-cluster')
+        self.faulty_service = faulty_service
+        self.KubeCtl = KubeCtl()
+        self.app.create_workload()
 
+    @mark_fault_injected
     def inject_fault(self):
         print("== Fault Injection ==")
-        self.injector._inject("invalid_affinity_toleration")
-        print(f"Injecting affinity toleration failure of the TiDB cluster\n")
+        injector = K8SOperatorFaultInjector(namespace=self.namespace)
+        injector.inject_invalid_affinity_toleration()
+        print(f"[FAULT INJECTED] {self.faulty_service} invalid affinity toleration failure\n")
 
+    @mark_fault_injected
     def recover_fault(self):
         print("== Fault Recovery ==")
-        self.injector._recover("invalid_affinity_toleration")
-        print(f"Recovered affinity toleration failure of the TiDB cluster\n")
+        injector = K8SOperatorFaultInjector(namespace=self.namespace)
+        injector.recover_invalid_affinity_toleration()
+        print(f"[FAULT INJECTED] {self.faulty_service} invalid affinity toleration failure\n")
+
+
 
 
 ################## Detection Problem ##################

@@ -57,6 +57,7 @@ from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
 from srearena.conductor.problems.operator_misoperation.security_context_fault import K8SOperatorSecurityContextFault
 from srearena.conductor.problems.operator_misoperation.wrong_update_strategy import K8SOperatorWrongUpdateStrategyFault
+from srearena.conductor.problems.operator_misoperation.invalid_affinity_toleration import K8SOperatorInvalidAffinityTolerationFault
 
 class ProblemRegistry:
     def __init__(self):
@@ -218,7 +219,7 @@ class ProblemRegistry:
             # "operator_non_existent_storage-detection-1": K8SOperatorNonExistentStorageDetection,
             # "operator_non_existent_storage-localization-1": K8SOperatorNonExistentStorageLocalization,
             # "operator_invalid_affinity_toleration-detection-1": K8SOperatorInvalidAffinityTolerationDetection,
-            # "operator_invalid_affinity_toleration-localization-1": K8SOperatorInvalidAffinityTolerationLocalization,
+            "operator_invalid_affinity_toleration": K8SOperatorInvalidAffinityTolerationFault,
             "operator_security_context_fault": K8SOperatorSecurityContextFault,
             "operator_wrong_update_strategy_fault": K8SOperatorWrongUpdateStrategyFault,
           
