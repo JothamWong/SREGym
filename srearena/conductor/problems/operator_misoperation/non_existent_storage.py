@@ -14,7 +14,7 @@ from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
 
 
-class K8SOperatorNonExistentStorageBaseTask(Problem):
+class K8SOperatorNonExistentStorageFault(Problem):
     def __init__(self, faulty_service="tidb-app"):
         app = FleetCast()
         super().__init__(app=app, namespace='tidb-cluster')

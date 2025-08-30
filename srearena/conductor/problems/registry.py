@@ -59,7 +59,7 @@ from srearena.conductor.problems.operator_misoperation.security_context_fault im
 from srearena.conductor.problems.operator_misoperation.wrong_update_strategy import K8SOperatorWrongUpdateStrategyFault
 from srearena.conductor.problems.operator_misoperation.invalid_affinity_toleration import K8SOperatorInvalidAffinityTolerationFault
 from srearena.conductor.problems.operator_misoperation.overload_replicas import K8SOperatorOverloadReplicasFault
-
+from srearena.conductor.problems.operator_misoperation.non_existent_storage import K8SOperatorNonExistentStorageFault
 class ProblemRegistry:
     def __init__(self):
         self.PROBLEM_REGISTRY = {
@@ -217,8 +217,7 @@ class ProblemRegistry:
             # They will also need to be updated to the new problem format.
             # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
             "operator_overload_replicas": K8SOperatorOverloadReplicasFault,
-            # "operator_non_existent_storage-detection-1": K8SOperatorNonExistentStorageDetection,
-            # "operator_non_existent_storage-localization-1": K8SOperatorNonExistentStorageLocalization,
+             "operator_non_existent_storage": K8SOperatorNonExistentStorageFault,
             "operator_invalid_affinity_toleration": K8SOperatorInvalidAffinityTolerationFault,
             "operator_security_context_fault": K8SOperatorSecurityContextFault,
             "operator_wrong_update_strategy_fault": K8SOperatorWrongUpdateStrategyFault,
