@@ -6,9 +6,9 @@ from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.oracles.mitigation import MitigationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_virtual import VirtualizationFaultInjector
+from srearena.service.apps.composite_app import CompositeApp
 from srearena.service.apps.social_network import SocialNetwork
 from srearena.service.kubectl import KubeCtl
-from srearena.service.composite_app import CompositeApp
 from srearena.utils.decorators import mark_fault_injected
 
 
@@ -18,6 +18,7 @@ class MultipleIndependentFailures(Problem):
         apps = [p.app for p in problems]
         self.app = CompositeApp(apps)
         self.namespaces = [p.namespace for p in problems]
+        self.fault_injected = False
 
     @mark_fault_injected
     def inject_fault(self):
