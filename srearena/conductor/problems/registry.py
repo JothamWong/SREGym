@@ -231,6 +231,8 @@ class ProblemRegistry:
             "multiple_independent_failures": lambda: MultipleIndependentFailures(
                 problems=[
                     K8STargetPortMisconfig(faulty_service="user-service"),
+                    MongoDBRevokeAuth(faulty_service="mongodb-geo"),
+                    MongoDBRevokeAuth(faulty_service="mongodb-rate"),
                 ]
             ),
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
