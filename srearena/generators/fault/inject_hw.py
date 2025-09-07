@@ -26,6 +26,35 @@ class HWFaultInjector(FaultInjector):
             host_pid = self._get_host_pid_on_node(node, container_id)
             self._exec_khaos_fault_on_node(node, fault_type, host_pid)
 
+    def inject_node(self, namespace: str, fault_type: str, target_node: str = None):
+
+        if target_node:
+            selected_node = self._find_node_starting_with(target_node)
+            if not selected_node:
+                print(f"Node starting with '{target_node}' not found, selecting node with most pods")
+                selected_node = self._find_node_with_most_pods(namespace)
+        else:
+            selected_node = self._find_node_with_most_pods(namespace)
+        
+        print(f"Selected target node: {selected_node}")
+        
+        target_pods = self._get_pods_on_node(namespace, selected_node)
+        if not target_pods:
+            raise RuntimeError(f"No running pods found on node '{selected_node}' in namespace '{namespace}'")
+        
+        print(f"Found {len(target_pods)} pods on node {selected_node}: {', '.join(target_pods)}")
+        
+        self.inject(target_pods, fault_type)
+        return selected_node
+
+    def recover_node(self, namespace: str, fault_type: str, target_node: str):
+        target_pods = self._get_pods_on_node(namespace, target_node)
+        if not target_pods:
+            print(f"[warn] No pods found on node {target_node}; attempting best-effort recovery.")
+            target_pods = []
+        
+        self.recover(target_pods, fault_type)
+
     def recover(self, microservices: List[str], fault_type: str):
         touched = set()
         for pod_ref in microservices:
@@ -200,3 +229,66 @@ class HWFaultInjector(FaultInjector):
         pod_name = self._get_khaos_pod_on_node(node)
         cmd = ["kubectl", "-n", self.khaos_ns, "exec", pod_name, "--", "/khaos/khaos", "--recover", fault_type]
         subprocess.run(cmd, check=True)
+
+    def _get_all_nodes(self) -> List[str]:
+        """Get all node names in the cluster."""
+        cmd = "kubectl get nodes -o jsonpath='{.items[*].metadata.name}'"
+        out = self.kubectl.exec_command(cmd)
+        if isinstance(out, tuple):
+            out = out[0]
+        nodes = (out or "").strip().split()
+        return [node for node in nodes if node]
+
+    def _find_node_starting_with(self, target_node: str) -> str:
+        """Find a node that starts with the given string."""
+        all_nodes = self._get_all_nodes()
+        for node in all_nodes:
+            if node.startswith(target_node):
+                return node
+        return None
+
+    def _find_node_with_most_pods(self, namespace: str) -> str:
+        """Find the node with the most pods in the namespace."""
+        node_pod_count = {}
+        
+        cmd = f"kubectl -n {namespace} get pods -o json"
+        out = self.kubectl.exec_command(cmd)
+        if isinstance(out, tuple):
+            out = out[0]
+        try:
+            data = json.loads(out)
+            for item in data.get("items", []):
+                phase = item.get("status", {}).get("phase")
+                node_name = item.get("spec", {}).get("nodeName")
+                if phase == "Running" and node_name:
+                    node_pod_count[node_name] = node_pod_count.get(node_name, 0) + 1
+        except Exception as e:
+            print(f"Error getting pods: {e}")
+            return None
+        
+        if not node_pod_count:
+            raise RuntimeError(f"No running pods found in namespace '{namespace}'")
+        
+        selected_node = max(node_pod_count, key=node_pod_count.get)
+        print(f"Node {selected_node} has {node_pod_count[selected_node]} pods")
+        return selected_node
+
+    def _get_pods_on_node(self, namespace: str, target_node: str) -> List[str]:
+        """Get all pods in namespace on the target node."""
+        pods: List[str] = []
+
+        cmd = f"kubectl -n {namespace} get pods -o json"
+        out = self.kubectl.exec_command(cmd)
+        if isinstance(out, tuple):
+            out = out[0]
+        try:
+            data = json.loads(out)
+            for item in data.get("items", []):
+                phase = item.get("status", {}).get("phase")
+                node_name = item.get("spec", {}).get("nodeName")
+                if phase == "Running" and node_name == target_node:
+                    pods.append(f"{namespace}/{item['metadata']['name']}")
+        except Exception as e:
+            print(f"Error getting pods: {e}")
+
+        return pods
