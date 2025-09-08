@@ -1,5 +1,3 @@
-from srearena.conductor.oracles.compound import CompoundedOracle
-from srearena.conductor.oracles.workload import WorkloadOracle
 from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_hw import HWFaultInjector
@@ -30,14 +28,13 @@ class ReadError(Problem):
 
         self.app.create_workload()
 
-        self.localization_oracle = None
-
-    # --------- Fault actions ----------
-
     @mark_fault_injected
     def inject_fault(self):
         print(f"== Fault Injection: read_error ==")
         self.target_node = self.injector.inject_node(self.namespace, "read_error", self.target_node)
+        print(f"[debug] target_node: {self.target_node}")
+        # Setup localization oracle here since we now have the target node
+        self.localization_oracle = LocalizationOracle(self, expected=[self.target_node])
         print(f"Injected read_error into pods on node {self.target_node}\n")
 
     @mark_fault_injected
@@ -48,4 +45,3 @@ class ReadError(Problem):
         else:
             print("[warn] No target node recorded; attempting best-effort recovery.")
         print("Recovery request sent.\n")
-
