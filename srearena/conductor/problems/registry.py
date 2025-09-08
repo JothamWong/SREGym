@@ -11,7 +11,7 @@ from srearena.conductor.problems.configmap_drift import ConfigMapDrift
 from srearena.conductor.problems.container_kill import ChaosMeshContainerKill
 from srearena.conductor.problems.cpu_stress import ChaosMeshCPUStress
 from srearena.conductor.problems.duplicate_pvc_mounts import DuplicatePVCMounts
-from srearena.conductor.problems.env_variable_leak import EnvVariableLeak
+from srearena.conductor.problems.missing_configmap import MissingConfigMap
 from srearena.conductor.problems.env_variable_shadowing import EnvVariableShadowing
 from srearena.conductor.problems.http_abort import ChaosMeshHttpAbort
 from srearena.conductor.problems.http_post_tamper import ChaosMeshHttpPostTamper
@@ -61,8 +61,8 @@ from srearena.conductor.problems.valkey_memory_disruption import ValkeyMemoryDis
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
+from srearena.conductor.problems.missing_env_variable import MissingEnvVariable
 from srearena.conductor.problems.rpc_retry_storm import RPCRetryStorm
-
 from srearena.service.kubectl import KubeCtl
 
 class ProblemRegistry:
@@ -162,10 +162,10 @@ class ProblemRegistry:
             "sidecar_port_conflict_hotel_reservation": lambda: SidecarPortConflict(
                 app_name="hotel_reservation", faulty_service="frontend"
             ),
-            "env_variable_leak_social_network": lambda: EnvVariableLeak(
+            "missing_configmap_social_network": lambda: MissingConfigMap(
                 app_name="social_network", faulty_service="media-mongodb"
             ),
-            "env_variable_leak_hotel_reservation": lambda: EnvVariableLeak(
+            "missing_configmap_hotel_reservation": lambda: MissingConfigMap(
                 app_name="hotel_reservation", faulty_service="mongodb-geo"
             ),
             "configmap_drift_hotel_reservation": lambda: ConfigMapDrift(faulty_service="geo"),
@@ -226,6 +226,7 @@ class ProblemRegistry:
             "namespace_memory_limit": NamespaceMemoryLimit,
             "pvc_claim_mismatch": PVCClaimMismatch,
             "read_error": ReadError,
+            "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(app_name="astronomy_shop", faulty_service="frontend"),
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
