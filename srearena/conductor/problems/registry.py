@@ -63,9 +63,13 @@ from srearena.conductor.problems.valkey_memory_disruption import ValkeyMemoryDis
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
+from srearena.conductor.problems.faulty_image_correlated import FaultyImageCorrelated
+from srearena.conductor.problems.update_incompatible_correlated import UpdateIncompatibleCorrelated
 from srearena.conductor.problems.missing_env_variable import MissingEnvVariable
 from srearena.conductor.problems.rpc_retry_storm import RPCRetryStorm
+
 from srearena.service.kubectl import KubeCtl
+
 
 
 class ProblemRegistry:
@@ -228,8 +232,13 @@ class ProblemRegistry:
             "incorrect_image": IncorrectImage,
             "namespace_memory_limit": NamespaceMemoryLimit,
             "pvc_claim_mismatch": PVCClaimMismatch,
+
+            "faulty_image_correlated": FaultyImageCorrelated,
+            "update_incompatible_correlated": UpdateIncompatibleCorrelated,
+
             "read_error": ReadError,
             "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(app_name="astronomy_shop", faulty_service="frontend"),
+
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.

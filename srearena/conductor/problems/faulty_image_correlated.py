@@ -3,30 +3,33 @@ from srearena.conductor.oracles.localization import LocalizationOracle
 from srearena.conductor.problems.base import Problem
 from srearena.generators.fault.inject_app import ApplicationFaultInjector
 from srearena.service.apps.astronomy_shop import AstronomyShop
+from srearena.service.apps.hotel_reservation import HotelReservation
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
 
 
-class IncorrectImage(Problem):
+class FaultyImageCorrelated(Problem):
     def __init__(self):
-        self.app = AstronomyShop()
+        self.app = HotelReservation()
         self.kubectl = KubeCtl()
         self.namespace = self.app.namespace
-        self.faulty_services = ["product-catalog"]
+        self.faulty_services = ["frontend", "geo", "profile", "rate", "recommendation", "reservation", "user", "search"]
         self.injector = ApplicationFaultInjector(namespace=self.namespace)
         super().__init__(app=self.app, namespace=self.namespace)
 
         self.localization_oracle = LocalizationOracle(problem=self, expected=self.faulty_services)
-        self.mitigation_oracle = IncorrectImageMitigationOracle(problem=self, actual_images={"product-catalog": "app-image:latest"})
+        # not really the incorrect image problem, just reuse the incorrect image function
+        self.mitigation_oracle = IncorrectImageMitigationOracle(problem=self, actual_images={service: "jackcuii/hotel-reservation:latest" for service in self.faulty_services})
 
         self.app.create_workload()
 
     @mark_fault_injected
     def inject_fault(self):
         print("== Fault Injection ==")
+        # not really the incorrect image problem, just reuse the incorrect image function
         for service in self.faulty_services:
             self.injector.inject_incorrect_image(
-                deployment_name=service, namespace=self.namespace, bad_image="app-image:latest"
+                deployment_name=service, namespace=self.namespace, bad_image="jackcuii/hotel-reservation:latest"
             )
             print(f"Service: {service} | Namespace: {self.namespace}\n")
 
@@ -37,5 +40,5 @@ class IncorrectImage(Problem):
             self.injector.recover_incorrect_image(
                 deployment_name=service,
                 namespace=self.namespace,
-                correct_image="ghcr.io/open-telemetry/demo:2.0.2-productcatalogservice",
+                correct_image="yinfangchen/hotel-reservation:latest",
             )
