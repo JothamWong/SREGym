@@ -8,7 +8,7 @@ class OverloadReplicasMitigationOracle(Oracle):
         super().__init__(problem)
         self.cr_name = "basic"
         self.deployment_name = deployment_name
-        self.namespace = problem.namespace
+        self.namespace = "tidb-cluster"
         self.kubectl = problem.kubectl
 
     def evaluatePods(self) -> dict:
@@ -49,12 +49,13 @@ class OverloadReplicasMitigationOracle(Oracle):
         
 
 
-    def getTheValue(self) -> dict:
+    def evaluate(self) -> dict:
         ns = self.namespace
         name = "basic"
-
+        results = {}
+    
         cr = json.loads(self.kubectl.exec_command(
-            f"kubectl get tidb-cluster {name} -n {ns} -o json"
+            f"kubectl get tidbcluster {name} -n tidb-cluster -o json"
         ))
         desired = (cr.get("spec", {}).get("tidb", {}) or {}).get("replicas")
 
@@ -80,19 +81,16 @@ class OverloadReplicasMitigationOracle(Oracle):
             pod_count = None
 
         fault_applied = (desired == 100000)
+        print("== Evaluation Result ===")
+        print(f"CR desired replicas: {desired}")
+        print(f"StatefulSet replicas: {sts_replicas}")
+        print(f"StatefulSet current replicas: {sts_current}")
+        print(f"StatefulSet ready replicas: {sts_ready}")
+        print(f"TiDB pod count: {pod_count}")
+        print(f"Fault applied: {fault_applied}")
+        results["success"] = not fault_applied
 
-        return {
-            "success": not fault_applied,
-            "cr_tidb_replicas_desired": desired,
-            "sts": {
-                "name": sts_name,
-                "spec_replicas": sts_replicas,
-                "status_replicas": sts_current,
-                "ready_replicas": sts_ready,
-            },
-            "tidb_pod_count": pod_count,
-            "fault_applied": fault_applied
-        }
+        return results
 
 
        

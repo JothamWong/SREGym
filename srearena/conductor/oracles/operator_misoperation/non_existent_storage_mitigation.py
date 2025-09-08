@@ -50,12 +50,13 @@ class NonExistentStorageClassMitigationOracle(Oracle):
         
 
 
-    def getTheValue(self) -> dict:
+    def evaluate(self) -> dict:
         ns = self.namespace
         name = self.cr_name
+        results = {}
 
         cr = json.loads(self.kubectl.exec_command(
-            f"kubectl get tidb-cluster {name} -n {ns} -o json"
+            f"kubectl get tidbcluster {name} -n tidb-cluster -o json"
         ))
         pd_sc   = (cr.get("spec", {}).get("pd", {})   or {}).get("storageClassName")
         tikv_sc = (cr.get("spec", {}).get("tikv", {}) or {}).get("storageClassName")
@@ -93,6 +94,7 @@ class NonExistentStorageClassMitigationOracle(Oracle):
         cr_has_bad = (pd_sc == BAD) or (tikv_sc == BAD)
         pvc_shows_bad = any(e.get("storageClassName") == BAD for e in pvc_pd + pvc_tikv)
         any_pending = any(e.get("phase") == "Pending" for e in pvc_pd + pvc_tikv)
+        print (f"cr_has_bad: {cr_has_bad}, pvc_shows_bad: {pvc_shows_bad}, any_pending: {any_pending}")
 
         fault_applied = cr_has_bad or pvc_shows_bad
         success = not fault_applied  

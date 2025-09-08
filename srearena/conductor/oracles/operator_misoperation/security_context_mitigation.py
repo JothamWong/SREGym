@@ -48,12 +48,14 @@ class SecurityContextMitigationOracle(Oracle):
         
 
 
-    def getTheValue(self) -> dict:
+    def evaluate(self) -> dict:
         ns = self.namespace
         name = "basic"
+        evaluatePods = self.evaluatePods()
+        print(f"evaluatePods: {evaluatePods}")
 
         cr = json.loads(self.kubectl.exec_command(
-            f"kubectl get tidb-cluster {name} -n {ns} -o json"
+            f"kubectl get tidbcluster {name} -n tidb-cluster -o json"
         ))
         run_as_user = (
             cr.get("spec", {})
@@ -91,6 +93,12 @@ class SecurityContextMitigationOracle(Oracle):
                 )
         except Exception:
             pass
+        print("== Evaluation Result ===")
+        print(f"CR runAsUser: {run_as_user}")
+        print(f"StatefulSet runAsUser: {sts_run_as_user}")
+        print(f"Pod runAsUsers: {pod_run_as_users}")
+        print(f"Fault applied: {run_as_user == -1}")
+
 
         fault_present = (run_as_user == -1)
         return {

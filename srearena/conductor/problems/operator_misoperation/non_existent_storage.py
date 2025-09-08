@@ -12,6 +12,8 @@ from srearena.paths import TARGET_MICROSERVICES
 from srearena.service.apps.fleet_cast import FleetCast
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
+from srearena.conductor.oracles.localization import LocalizationOracle
+from srearena.conductor.oracles.operator_misoperation.non_existent_storage_mitigation import NonExistentStorageClassMitigationOracle
 
 
 class K8SOperatorNonExistentStorageFault(Problem):
@@ -20,6 +22,8 @@ class K8SOperatorNonExistentStorageFault(Problem):
         super().__init__(app=app, namespace='tidb-cluster')
         self.faulty_service = faulty_service
         self.KubeCtl = KubeCtl()
+        self.localization_oracle = LocalizationOracle(problem=self, expected=["tidb-cluster"])
+        self.mitigation_oracle = NonExistentStorageClassMitigationOracle(problem=self, deployment_name="basic")
 
     @mark_fault_injected
     def inject_fault(self):

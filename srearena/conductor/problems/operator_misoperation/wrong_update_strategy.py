@@ -12,6 +12,8 @@ from srearena.paths import TARGET_MICROSERVICES
 from srearena.service.apps.fleet_cast import FleetCast
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
+from srearena.conductor.oracles.localization import LocalizationOracle
+from srearena.conductor.oracles.operator_misoperation.wrong_update_strategy_mitigation import WrongUpdateStrategyMitigationOracle
 
 
 class K8SOperatorWrongUpdateStrategyFault(Problem):
@@ -22,10 +24,8 @@ class K8SOperatorWrongUpdateStrategyFault(Problem):
         self.kubectl = KubeCtl()
         self.app.create_workload()
         
-        #Oracles will be attached below
-                #self.localization_oracle = MyFutureLocalizationOracle(problem=self, expected=["tidbclusters"])
-
-        # self.mitigation_oracle = MyOracleMitigation(problem=self)
+        self.localization_oracle = LocalizationOracle(problem=self, expected=["tidb-cluster"])
+        self.mitigation_oracle = WrongUpdateStrategyMitigationOracle(problem=self, deployment_name="basic")
 
 
     @mark_fault_injected

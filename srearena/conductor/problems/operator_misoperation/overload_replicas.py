@@ -15,6 +15,9 @@ from srearena.paths import TARGET_MICROSERVICES
 from srearena.service.apps.fleet_cast import FleetCast
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
+from srearena.conductor.oracles.operator_misoperation.overload_replicas_mitigation import OverloadReplicasMitigationOracle
+from srearena.conductor.oracles.localization import LocalizationOracle
+
 
 class K8SOperatorOverloadReplicasFault(Problem):
     def __init__(self, faulty_service="tidb-app"):
@@ -23,17 +26,15 @@ class K8SOperatorOverloadReplicasFault(Problem):
         self.faulty_service= faulty_service
         self.kubectl = KubeCtl()
         self.app.create_workload()
-            #Oracles will be attached below
-                #self.localization_oracle = MyFutureLocalizationOracle(problem=self, expected=["tidbclusters"])
-
-        # self.mitigation_oracle = MyOracleMitigation(problem=self)
+        self.localization_oracle = LocalizationOracle(problem=self, expected=["tidb-cluster"])
+        self.mitigation_oracle = OverloadReplicasMitigationOracle(problem=self, deployment_name="basic")
        
 
     @mark_fault_injected
     def inject_fault(self):
         print("== Fault Injection ==")
         injector = K8SOperatorFaultInjector(namespace='tidb-cluster')
-        injector.inject_overload_replicas
+        injector.inject_overload_replicas()
         print(f"[FAULT INJECTED] {self.faulty_service} overload replica failure\n")
 
     @mark_fault_injected

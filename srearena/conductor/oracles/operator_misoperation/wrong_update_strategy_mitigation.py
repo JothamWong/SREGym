@@ -48,12 +48,12 @@ class WrongUpdateStrategyMitigationOracle(Oracle):
         
 
 
-    def getTheValue(self) -> dict:
+    def evaluate(self) -> dict:
         ns = self.namespace
         name = "basic"
 
         cr = json.loads(self.kubectl.exec_command(
-            f"kubectl get tidb-cluster {name} -n {ns} -o json"
+            f"kubectl get tidbcluster {name} -n tidb-cluster -o json"
         ))
         cr_strategy = (
             cr.get("spec", {})
@@ -77,6 +77,7 @@ class WrongUpdateStrategyMitigationOracle(Oracle):
 
         BAD = "SomeStrategyForUpdate"
         fault_applied = (cr_strategy == BAD)
+        print(f"cr_strategy: {cr_strategy}, sts_type: {sts_type}, fault_applied: {fault_applied}")
 
         return {
             "success": not fault_applied,

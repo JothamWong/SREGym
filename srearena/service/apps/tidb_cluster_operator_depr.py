@@ -63,11 +63,49 @@ class TiDBClusterDeployer:
             time.sleep(5)
         raise RuntimeError("Timeout waiting for tidb-controller-manager pod")
 
+    def wait_for_tidb_cluster_ready(self):
+        print("Waiting for TiDB cluster pods to be ready...")
+        label = "app.kubernetes.io/name=tidb"
+        expected_ready_pods = 2  # Adjust this if you expect more TiDB pods
+        for _ in range(30):  # Retry for up to 5 minutes (30 retries)
+            ready_pods = subprocess.check_output(
+                f"kubectl get pods -l {label} -n {self.namespace_tidb_cluster} --field-selector=status.phase=Running -o custom-columns='COUNT:.status.containerStatuses[?(@.ready==true)].name'",
+                shell=True
+            ).decode().strip().splitlines()
+            if len(ready_pods) == expected_ready_pods:
+                print("All TiDB pods are ready.")
+                return
+            print(f"{len(ready_pods)}/{expected_ready_pods} TiDB pods are ready. Waiting...")
+            time.sleep(10)
+        raise RuntimeError("Timeout waiting for TiDB cluster pods to be ready.")
+
+    def wait_for_tidb_service_ready(self):
+        print("Waiting for TiDB service to be ready...")
+        # Check if the TiDB service is accessible
+        for _ in range(30):  # Retry for up to 5 minutes (30 retries)
+            try:
+                # Check if the service is available on port 4000 (MySQL)
+                subprocess.check_output(
+                    f"kubectl run -n {self.namespace_tidb_cluster} --rm -it --restart=Never --image=mysql:8 --command -- mysql -h basic-tidb.tidb-cluster.svc -P 4000 -uroot -e 'SHOW DATABASES;'",
+                    shell=True,
+                )
+                print("TiDB service is accessible and ready.")
+                return
+            except subprocess.CalledProcessError:
+                print("TiDB service not yet ready, retrying...")
+                time.sleep(10)
+
+        raise RuntimeError("Timeout waiting for TiDB service to be ready.")
+
     def deploy_tidb_cluster(self):
         print(f"Creating TiDB cluster namespace '{self.namespace_tidb_cluster}'...")
         self.create_namespace(self.namespace_tidb_cluster)
         print(f"Deploying TiDB cluster manifest from {self.cluster_config_url}...")
         self.run_cmd(f"kubectl apply -f {self.cluster_config_url} -n {self.namespace_tidb_cluster}")
+        # Wait for the TiDB service to be ready
+        self.wait_for_tidb_service_ready()
+        # Wait for the TiDB pods to be fully ready
+        self.wait_for_tidb_cluster_ready()
 
     def deploy_all(self):
         print(f"Starting deployment: {self.name}")

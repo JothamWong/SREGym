@@ -50,12 +50,14 @@ class InvalidAffinityMitigationOracle(Oracle):
         
 
 
-    def getTheValue(self) -> dict:
+    def evaluate(self) -> dict:
+        evaluatePods = self.evaluatePods()
+        print(f"evaluatePods: {evaluatePods}")
         ns = self.namespace
         name = "basic"  
 
         cr_json = json.loads(self.kubectl.exec_command(
-            f"kubectl get tidb-cluster {name} -n {ns} -o json"
+            f"kubectl get tidbcluster {name} -n tidb-cluster -o json"
         ))
         cr_effects = [
             t.get("effect")
