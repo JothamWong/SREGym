@@ -26,8 +26,8 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: khaos
-          image:  saad1038/khaos-x86:latest # jacksonarthurclark/khaos-x86:latest
-          imagePullPolicy: Always # TODO: change to IfNotPresent after testing
+          image: saad1038/khaos-x86:latest
+          imagePullPolicy: IfNotPresent
           command: ["sleep", "infinity"]
           securityContext:
             privileged: true
