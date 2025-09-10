@@ -1,10 +1,13 @@
-import asyncio, os, sys
+import os
+import sys
+import threading
+import subprocess
 from typing import Dict, Optional
 from datetime import datetime
 from .agent_registry import AgentRegistration
 
 class AgentProcess:
-    def __init__(self, name: str, proc: asyncio.subprocess.Process):
+    def __init__(self, name: str, proc: subprocess.Popen):
         self.name = name
         self.proc = proc
         self.started_at = datetime.utcnow()
@@ -24,21 +27,29 @@ class AgentLauncher:
         if reg.kickoff_env:
             env.update(reg.kickoff_env)
 
-        proc = await asyncio.create_subprocess_shell(
+        proc = subprocess.Popen(
             reg.kickoff_command,
+            shell=True,
             cwd=reg.kickoff_workdir or os.getcwd(),
             env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,              
+            bufsize=1,              
+            universal_newlines=True,
         )
         ap = AgentProcess(reg.name, proc)
         self._procs[reg.name] = ap
-        asyncio.create_task(self._pipe_logs(reg.name, proc))
+        t = threading.Thread(target=self._pipe_logs, args=(reg.name, proc), daemon=True)
+        t.start()
         return ap
 
-    async def _pipe_logs(self, name: str, proc: asyncio.subprocess.Process):
+    def _pipe_logs(self, name: str, proc: subprocess.Popen):
         if proc.stdout is None:
             return
-        async for line in proc.stdout:
-            sys.stdout.write(f"[{name}] {line.decode(errors='ignore')}")
-            sys.stdout.flush()
+        for line in proc.stdout:
+            try:
+                sys.stdout.write(f"[{name}] {line}")
+                sys.stdout.flush()
+            except Exception:
+                break
