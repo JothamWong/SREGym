@@ -40,6 +40,12 @@ def get_current_datetime_formatted():
     return formatted_datetime
 
 
+def get_current_datetime_formatted():
+    now = datetime.now()
+    formatted_datetime = now.strftime("%m-%d_%H-%M")
+    return formatted_datetime
+
+
 async def validate_oracles(oracles: List[BaseOracle]) -> List[bool | List[OracleResult]]:
     results = []
     attempt_failed = False
@@ -494,7 +500,6 @@ async def main():
     logger.info("*" * 25 + " Finished [diagnosis agent] " + "*" * 25)
     logger.info("sleeping for a minute for fault propagation")
     await asyncio.sleep(60)
-
 
     # 1 for faulty diagnosis
     logger.info("*" * 25 + " Starting [diagnosis agent] for [Faulty detection] " + "*" * 25)
