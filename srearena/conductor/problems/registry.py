@@ -67,7 +67,7 @@ from srearena.conductor.problems.faulty_image_correlated import FaultyImageCorre
 from srearena.conductor.problems.update_incompatible_correlated import UpdateIncompatibleCorrelated
 from srearena.conductor.problems.missing_env_variable import MissingEnvVariable
 from srearena.conductor.problems.rpc_retry_storm import RPCRetryStorm
-
+from srearena.conductor.problems.workload_imbalance import WorkloadImbalance
 from srearena.service.kubectl import KubeCtl
 
 
@@ -239,6 +239,7 @@ class ProblemRegistry:
             "read_error": ReadError,
             "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(app_name="astronomy_shop", faulty_service="frontend"),
 
+            "workload_imbalance": WorkloadImbalance,
             # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.

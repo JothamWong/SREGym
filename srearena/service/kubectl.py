@@ -616,7 +616,18 @@ class KubeCtl:
             print(f"✅ Scaled deployment '{name}' in namespace '{namespace}' to {replicas} replicas.")
         except client.exceptions.ApiException as e:
             raise RuntimeError(f"❌ Failed to scale deployment '{name}' in namespace '{namespace}': {e}")
-
+    
+    def get_pod_cpu_usage(self, namespace: str):
+        cmd = f"kubectl top pod -n {namespace} --no-headers"
+        out = self.exec_command(cmd)
+        # make the result into a dict
+        result = {}
+        for line in out.split("\n"):
+            if line:
+                pod_name, cpu, _ = line.split()
+                cpu = cpu.replace("m", "")
+                result[pod_name] = cpu
+        return result
 
 # Example usage:
 if __name__ == "__main__":

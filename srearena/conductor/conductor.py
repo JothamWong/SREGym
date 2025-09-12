@@ -1,6 +1,8 @@
 import shutil
 import time
 
+import yaml
+
 from srearena.conductor.oracles.detection import DetectionOracle
 from srearena.conductor.problems.registry import ProblemRegistry
 from srearena.service.apps.app_registry import AppRegistry
@@ -53,6 +55,7 @@ class Conductor:
 
         self.dependency_check(["kubectl", "helm"])
         print(f"[Session Start] Problem ID: {self.problem_id}")
+        self.fix_kubernetes()
         self.undeploy_app()  # Cleanup any leftovers
         self.deploy_app()
 
@@ -132,6 +135,27 @@ class Conductor:
             return snapshot
 
         return dict(self.results)
+    
+    
+    def fix_kubernetes(self):
+        print("Fixing Kubernetes...")
+        # fix possible interruption of imbalance problem
+        daemon_set_yaml = self.kubectl.exec_command(f"kubectl get ds kube-proxy -n kube-system -o yaml")
+        daemon_set_yaml = yaml.safe_load(daemon_set_yaml)
+        if "spec" in daemon_set_yaml and "template" in daemon_set_yaml["spec"]:
+            template_spec = daemon_set_yaml["spec"]["template"]["spec"]
+            if "containers" in template_spec:
+                for container in template_spec["containers"]:
+                    if "image" in container:
+                        if not container["image"].startswith("registry.k8s.io/kube-proxy:v1.31.13"):
+                            container["image"] = "registry.k8s.io/kube-proxy:v1.31.13"
+                            file_path = f"/tmp/kube-proxy_healthy.yaml"
+                            with open(file_path, "w") as file:
+                                yaml.dump(daemon_set_yaml, file)
+                            self.kubectl.exec_command(f"kubectl apply -f {file_path}")
+                            self.kubectl.exec_command(f"kubectl rollout restart ds kube-proxy -n kube-system")
+                            self.kubectl.exec_command(f"kubectl rollout status ds kube-proxy -n kube-system --timeout=60s")
+                            break
 
     def deploy_app(self):
         """Kubectl + Prometheus + problem.app deployment."""
