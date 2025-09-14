@@ -1,10 +1,12 @@
 import json
 import time
 import subprocess
-import os
+
 from pathlib import Path
 from textwrap import dedent
 
+from srearena.paths import BASE_DIR
+import os
 #This script deploys a TIDB Cluster, configuring it to the FleetCast TiDB application.
 class TiDBClusterDeployer:
     def __init__(self, metadata_path):
@@ -56,6 +58,29 @@ class TiDBClusterDeployer:
         print("Installing local-path provisioner for dynamic volume provisioning...")
         self.run_cmd("kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml")
         self.run_cmd("kubectl patch storageclass local-path -p '{\"metadata\": {\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}'")
+    
+
+
+    def apply_prometheus(self):
+        ns = "observe"
+        prom_yml_path = BASE_DIR / "aiopslab-applications/FleetCast/prometheus/prometheus.yaml"
+
+        prom_yml_path = str(prom_yml_path.resolve())
+        if not os.path.isfile(prom_yml_path):
+            raise FileNotFoundError(f"prometheus.yaml not found at {prom_yml_path}")
+
+        self.run_cmd(
+            f"kubectl -n {ns} create configmap prometheus-config "
+            f"--from-file=prometheus.yml={prom_yml_path} "
+            f"-o yaml --dry-run=client | kubectl apply -f -"
+        )
+
+        self.run_cmd(
+            "kubectl -n observe port-forward svc/prometheus-server 9090:80 >/dev/null 2>&1 & "
+            "PF=$!; sleep 1; curl -s -X POST http://127.0.0.1:9090/-/reload >/dev/null; kill $PF || true"
+        )
+
+        print(f"[ok] Prometheus config applied from {prom_yml_path}")
 
     def install_operator_with_values(self):
         print(f"Installing/upgrading TiDB Operator via Helm in namespace '{self.operator_namespace}'...")
