@@ -39,6 +39,16 @@ class Conductor:
 
         self.tasklist = None
 
+        self.transient_config = {
+            'switch': False,
+            'min_duration': 40,
+            'max_duration': 60,
+            'fault_types': [FaultType.FAIL_SLOW, FaultType.FAIL_STOP],
+            'scopes': [PodScope.TARGET_NAMESPACE],
+            'interval_min': 20,
+            'interval_max': 30
+        }
+
     def register_agent(self, name="agent"):
         self.agent_name = name
 
@@ -119,15 +129,8 @@ class Conductor:
                 return dict(self.results)
 
             self.problem.inject_fault()
-            faulty_services = self.problem.faulty_service if isinstance(self.problem.faulty_service, (list, tuple)) else [self.problem.faulty_service]
-            self.transient_issue_generator = TransientIssuesGenerator(namespace=self.problem.app.namespace,
-                                                                        target_services=faulty_services,
-                                                                        min_duration=40,
-                                                                        max_duration=60,)
-            self.transient_issue_generator.start_continuous_injection(fault_types=[FaultType.FAIL_SLOW, FaultType.FAIL_STOP],
-                                                                      scopes=[PodScope.TARGET_NAMESPACE],
-                                                                      interval_min=20,
-                                                                      interval_max=30)
+            if self.transient_config['switch']:
+                self._start_transient_issues()
         # DETECTION
         if self.submission_stage == "detection":
             r = self.detection_oracle.evaluate(sol)
@@ -216,3 +219,42 @@ class Conductor:
                 deployed_apps.append(app_name)
 
         return deployed_apps
+    
+    def configure_transient_issues(self, **kwargs):
+        """
+        Configure transient issues parameters
+        
+        Args:
+            min_duration: Minimum duration in seconds
+            max_duration: Maximum duration in seconds  
+            fault_types: List of FaultType enums
+            scopes: List of PodScope enums
+            interval_min: Minimum injection interval in seconds
+            interval_max: Maximum injection interval in seconds
+        """
+        valid_keys = ['min_duration', 'max_duration', 'fault_types', 'scopes', 'interval_min', 'interval_max']
+        
+        for key, value in kwargs.items():
+            if key in valid_keys:
+                self.transient_config[key] = value
+            else:
+                print(f"Warning: Unknown parameter '{key}' ignored")
+        
+        print(f"✅ Transient issues configuration updated: {self.transient_config}")
+
+    def _start_transient_issues(self):
+        """Start transient issues with current configuration"""
+        if self.problem:
+            faulty_services = self.problem.faulty_service if isinstance(self.problem.faulty_service, (list, tuple)) else [self.problem.faulty_service]
+            self.transient_issue_generator = TransientIssuesGenerator(
+                namespace=self.problem.app.namespace,
+                target_services=faulty_services,
+                min_duration=self.transient_config['min_duration'],
+                max_duration=self.transient_config['max_duration']
+            )
+            self.transient_issue_generator.start_continuous_injection(
+                fault_types=self.transient_config['fault_types'],
+                scopes=self.transient_config['scopes'],
+                interval_min=self.transient_config['interval_min'],
+                interval_max=self.transient_config['interval_max']
+            )
