@@ -186,9 +186,10 @@ class Conductor:
         print("[FIX] KubeletCrash leftover if any")
         injector = RemoteOSFaultInjector()
         info = injector.get_host_info()
-        for host, user in info.items():
-            if injector.exist_script_on_host(host, user, "kill_kubelet.sh"):
-                injector.clean_up_script_on_host(host, user, "kill_kubelet.sh")
+        if info:
+            for host, user in info.items():
+                if injector.exist_script_on_host(host, user, "kill_kubelet.sh"):
+                    injector.clean_up_script_on_host(host, user, "kill_kubelet.sh")
 
 
     def deploy_app(self):
