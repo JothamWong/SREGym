@@ -1,19 +1,20 @@
 import time
+
 from srearena.conductor.problems.base import Problem
+from srearena.generators.fault.inject_remote_os import RemoteOSFaultInjector
 from srearena.service.apps.astronomy_shop import AstronomyShop
 from srearena.service.kubectl import KubeCtl
 from srearena.utils.decorators import mark_fault_injected
-from srearena.generators.fault.inject_remote_os import RemoteOSFaultInjector
-from srearena.generators.normal.normal_op import NormalOperationGenerator
+
+
 class KubeletCrash(Problem):
     def __init__(self):
         self.app = AstronomyShop()
         self.kubectl = KubeCtl()
         self.namespace = self.app.namespace
         self.rollout_services = ["frontend", "frontend-proxy", "currency"]
-        self.normal_op = NormalOperationGenerator()
         self.injector = RemoteOSFaultInjector()
-        
+
         super().__init__(app=self.app, namespace=self.namespace)
 
         # not so precise here by now
@@ -27,7 +28,7 @@ class KubeletCrash(Problem):
         # rollout the services to trigger the failure
         for service in self.rollout_services:
             print(f"Rolling out {service}...")
-            self.normal_op.trigger_rollout(deployment_name=service, namespace=self.namespace)
+            self.kubectl.trigger_rollout(deployment_name=service, namespace=self.namespace)
 
     @mark_fault_injected
     def recover_fault(self):
@@ -35,5 +36,4 @@ class KubeletCrash(Problem):
         self.injector.recover_kubelet_crash()
         for service in self.rollout_services:
             print(f"Rolling out {service}...")
-            self.normal_op.trigger_rollout(deployment_name=service, namespace=self.namespace)
-
+            self.kubectl.trigger_rollout(deployment_name=service, namespace=self.namespace)
