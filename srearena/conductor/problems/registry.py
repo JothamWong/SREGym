@@ -6,11 +6,13 @@ from srearena.conductor.problems.ad_service_manual_gc import AdServiceManualGc
 from srearena.conductor.problems.assign_non_existent_node import AssignNonExistentNode
 from srearena.conductor.problems.auth_miss_mongodb import MongoDBAuthMissing
 from srearena.conductor.problems.base import Problem
+from srearena.conductor.problems.capacity_decrease_rpc_retry_storm import CapacityDecreaseRPCRetryStorm
 from srearena.conductor.problems.cart_service_failure import CartServiceFailure
 from srearena.conductor.problems.configmap_drift import ConfigMapDrift
 from srearena.conductor.problems.duplicate_pvc_mounts import DuplicatePVCMounts
-from srearena.conductor.problems.missing_configmap import MissingConfigMap
 from srearena.conductor.problems.env_variable_shadowing import EnvVariableShadowing
+from srearena.conductor.problems.faulty_image_correlated import FaultyImageCorrelated
+from srearena.conductor.problems.gc_capacity_degradation import GCCapacityDegradation
 from srearena.conductor.problems.image_slow_load import ImageSlowLoad
 from srearena.conductor.problems.incorrect_image import IncorrectImage
 from srearena.conductor.problems.incorrect_port_assignment import IncorrectPortAssignment
@@ -18,8 +20,11 @@ from srearena.conductor.problems.ingress_misroute import IngressMisroute
 from srearena.conductor.problems.kafka_queue_problems import KafkaQueueProblems
 from srearena.conductor.problems.liveness_probe_misconfiguration import LivenessProbeMisconfiguration
 from srearena.conductor.problems.liveness_probe_too_aggressive import LivenessProbeTooAggressive
+from srearena.conductor.problems.load_spike_rpc_retry_storm import LoadSpikeRPCRetryStorm
 from srearena.conductor.problems.loadgenerator_flood_homepage import LoadGeneratorFloodHomepage
 from srearena.conductor.problems.misconfig_app import MisconfigAppHotelRes
+from srearena.conductor.problems.missing_configmap import MissingConfigMap
+from srearena.conductor.problems.missing_env_variable import MissingEnvVariable
 from srearena.conductor.problems.missing_service import MissingService
 from srearena.conductor.problems.multiple_failures import MultipleIndependentFailures
 from srearena.conductor.problems.namespace_memory_limit import NamespaceMemoryLimit
@@ -45,20 +50,13 @@ from srearena.conductor.problems.taint_no_toleration import TaintNoToleration
 from srearena.conductor.problems.target_port import K8STargetPortMisconfig
 from srearena.conductor.problems.train_ticket_f22 import TrainTicketF22
 from srearena.conductor.problems.trainticket_f17 import TrainTicketF17
+from srearena.conductor.problems.update_incompatible_correlated import UpdateIncompatibleCorrelated
 from srearena.conductor.problems.valkey_auth_disruption import ValkeyAuthDisruption
 from srearena.conductor.problems.valkey_memory_disruption import ValkeyMemoryDisruption
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
-from srearena.conductor.problems.faulty_image_correlated import FaultyImageCorrelated
-from srearena.conductor.problems.update_incompatible_correlated import UpdateIncompatibleCorrelated
-from srearena.conductor.problems.missing_env_variable import MissingEnvVariable
-from srearena.conductor.problems.load_spike_rpc_retry_storm import LoadSpikeRPCRetryStorm
-from srearena.conductor.problems.capacity_decrease_rpc_retry_storm import CapacityDecreaseRPCRetryStorm
-from srearena.conductor.problems.gc_capacity_degradation import GCCapacityDegradation
-
 from srearena.service.kubectl import KubeCtl
-
 
 
 class ProblemRegistry:
@@ -87,23 +85,13 @@ class ProblemRegistry:
             "astronomy_shop_recommendation_service_cache_failure": RecommendationServiceCacheFailure,
             # ---
             "wrong_bin_usage": WrongBinUsage,
-            "trainticket_f17_nested_sql_select_clause_error": TrainTicketF17,
-            "trainticket_f22_sql_column_name_mismatch_error": TrainTicketF22,
             "taint_no_toleration_social_network": lambda: TaintNoToleration(),
             "missing_service_hotel_reservation": lambda: MissingService(
                 app_name="hotel_reservation", faulty_service="mongodb-rate"
             ),
-            "kafka_queue_problems_hotel_reservation": lambda: KafkaQueueProblems(
-                app_name="hotel_reservation", faulty_service="memcached-rate"
+            "missing_service_social_network": lambda: MissingService(
+                app_name="social_network", faulty_service="user-service"
             ),
-            "loadgenerator_flood_homepage": LoadGeneratorFloodHomepage,
-            "k8s_dns_resolution_failure": ServiceDNSResolutionFailure,
-            "k8s_sidecar_port_conflict": SidecarPortConflict,
-            "k8s_stale_coredns_config": StaleCoreDNSConfig,
-            "k8s_resource_request_too_large": ResourceRequestTooLarge,
-            "k8s_resource_request_too_small": ResourceRequestTooSmall,
-            "k8s_wrong_dns_policy": WrongDNSPolicy,
-            "k8s_wrong_service_selector": WrongServiceSelector,
             "resource_request_too_large": lambda: ResourceRequestTooLarge(
                 app_name="hotel_reservation", faulty_service="mongodb-rate"
             ),
@@ -145,10 +133,10 @@ class ProblemRegistry:
             "sidecar_port_conflict_hotel_reservation": lambda: SidecarPortConflict(
                 app_name="hotel_reservation", faulty_service="frontend"
             ),
-            "missing_configmap_social_network": lambda: MissingConfigMap(
+            "env_variable_leak_social_network": lambda: EnvVariableLeak(
                 app_name="social_network", faulty_service="media-mongodb"
             ),
-            "missing_configmap_hotel_reservation": lambda: MissingConfigMap(
+            "env_variable_leak_hotel_reservation": lambda: EnvVariableLeak(
                 app_name="hotel_reservation", faulty_service="mongodb-geo"
             ),
             "configmap_drift_hotel_reservation": lambda: ConfigMapDrift(faulty_service="geo"),
@@ -204,18 +192,12 @@ class ProblemRegistry:
             # --- valkey problem w/o mitigation oracle
             "valkey_memory_disruption": ValkeyMemoryDisruption,
             # ---
+            # these two below are also astro shop
             "incorrect_port_assignment": IncorrectPortAssignment,
             "incorrect_image": IncorrectImage,
             "namespace_memory_limit": NamespaceMemoryLimit,
             "pvc_claim_mismatch": PVCClaimMismatch,
-
-            "faulty_image_correlated": FaultyImageCorrelated,
-            "update_incompatible_correlated": UpdateIncompatibleCorrelated,
-
-            "read_error": ReadError,
-            "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(app_name="astronomy_shop", faulty_service="frontend"),
-
-            # "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
+            "missing_service_astronomy_shop": lambda: MissingService(app_name="astronomy_shop", faulty_service="ad"),
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
             # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
