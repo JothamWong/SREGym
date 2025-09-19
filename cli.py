@@ -77,9 +77,6 @@ class HumanAgent:
                 text = "\n".join(apps) if apps else "No apps deployed"
                 self.console.print(Panel(text, title="Deployed Apps"))
                 continue
-            # if cmd[0].lower() == 'noise':
-            #     await self.configure_transient_issues()
-            #     continue
             if cmd[0].lower() == "start" and len(cmd) == 2:
                 pid = cmd[1]
                 if pid not in self.pids:
@@ -144,7 +141,6 @@ async def main():
     # 1) Intro & pick a problem
     agent.display_welcome()
     await agent.select_mode()
-
 
     # 2) Deploy environment & launch HTTP server
     await conductor.start_problem()
