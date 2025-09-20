@@ -17,8 +17,10 @@ class KubeletCrash(Problem):
 
         super().__init__(app=self.app, namespace=self.namespace)
 
-        # not so precise here by now
-        # no oracle can be added to this problem now. since there is no fit agent-cluster interface for it up till now.
+        # note from JC after talking to Bohan:
+        # We could consider adding an oracle later, but it's not trivial where localization should go
+        # Same with mitigation, this is done with a script to kill the kubelet daemon.
+        # Maybe we could implement an oracle later to check for the status of the kubelet daemon?
         self.app.create_workload()
 
     @mark_fault_injected
