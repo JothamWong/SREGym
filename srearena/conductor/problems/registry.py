@@ -15,6 +15,7 @@ from srearena.conductor.problems.incorrect_image import IncorrectImage
 from srearena.conductor.problems.incorrect_port_assignment import IncorrectPortAssignment
 from srearena.conductor.problems.ingress_misroute import IngressMisroute
 from srearena.conductor.problems.kafka_queue_problems import KafkaQueueProblems
+from srearena.conductor.problems.kubelet_crash import KubeletCrash
 from srearena.conductor.problems.liveness_probe_misconfiguration import LivenessProbeMisconfiguration
 from srearena.conductor.problems.liveness_probe_too_aggressive import LivenessProbeTooAggressive
 from srearena.conductor.problems.load_spike_rpc_retry_storm import LoadSpikeRPCRetryStorm
@@ -50,6 +51,7 @@ from srearena.conductor.problems.trainticket_f17 import TrainTicketF17
 from srearena.conductor.problems.update_incompatible_correlated import UpdateIncompatibleCorrelated
 from srearena.conductor.problems.valkey_auth_disruption import ValkeyAuthDisruption
 from srearena.conductor.problems.valkey_memory_disruption import ValkeyMemoryDisruption
+from srearena.conductor.problems.workload_imbalance import WorkloadImbalance
 from srearena.conductor.problems.wrong_bin_usage import WrongBinUsage
 from srearena.conductor.problems.wrong_dns_policy import WrongDNSPolicy
 from srearena.conductor.problems.wrong_service_selector import WrongServiceSelector
@@ -222,7 +224,7 @@ class ProblemRegistry:
                     WrongServiceSelector(),
                 ]
             ),
-            # ==================== K8S OPERATOR MISOPERATION (COMMENTED OUT) ====================
+            # ==================== K8S OPERATOR MISOPERATION (COMMENTED OUT) ==================
             # K8S operator misoperation -> Refactor later, not sure if they're working
             # They will also need to be updated to the new problem format.
             # "operator_overload_replicas-detection-1": K8SOperatorOverloadReplicasDetection,
