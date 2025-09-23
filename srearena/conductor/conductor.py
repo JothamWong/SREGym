@@ -1,6 +1,7 @@
 import shutil
 import time
 from pathlib import Path
+import logging
 
 import yaml
 
@@ -11,6 +12,7 @@ from srearena.service.apps.app_registry import AppRegistry
 from srearena.service.khaos import KhaosController
 from srearena.service.kubectl import KubeCtl
 from srearena.service.telemetry.prometheus import Prometheus
+from dashboard.proxy import LogProxy
 
 
 class Conductor:
@@ -37,6 +39,7 @@ class Conductor:
         self.results = {}
 
         self.tasklist = None
+        self.logger = logging.getLogger('srearena-global')
 
     def register_agent(self, name="agent"):
         self.agent_name = name
@@ -86,6 +89,7 @@ class Conductor:
 
         self.dependency_check(["kubectl", "helm"])
         print(f"[Session Start] Problem ID: {self.problem_id}")
+        self.logger.info(f"[STAGE] Start testing on problem: {self.problem_id} <{self.app.namespace}>")
 
         self.get_tasklist()
 
@@ -118,24 +122,28 @@ class Conductor:
                 return dict(self.results)
 
             self.problem.inject_fault()
+            self.logger.info(f"[ENV] Injected fault")
 
         # DETECTION
         if self.submission_stage == "detection":
             r = self.detection_oracle.evaluate(sol)
             self.results["Detection"] = r
             self.results["TTD"] = time.time() - self.execution_start_time
+            self.logger.info(f"[EVAL] Detection {"Succeed" if r["success"] else "Failed"}\n TTD: {r["TTD"]}")
 
         # LOCALIZATION
         if self.submission_stage == "localization":
             r = self.problem.localization_oracle.evaluate(sol)
             self.results["Localization"] = r
             self.results["TTL"] = time.time() - self.execution_start_time
+            self.logger.info(f"[EVAL] Localization {"Succeed" if r["success"] else "Failed"}\n TTL: {r["TTL"]}")
 
         # MITIGATION
         if self.submission_stage == "mitigation":
             r = self.problem.mitigation_oracle.evaluate()
             self.results["Mitigation"] = r
             self.results["TTM"] = time.time() - self.execution_start_time
+            self.logger.info(f"[EVAL] Mitigation {"Succeed" if r["success"] else "Failed"}\n TTM: {r["TTM"]}")
 
         next_stage_idx = self.tasklist.index(self.submission_stage) + 1
 
@@ -148,13 +156,17 @@ class Conductor:
             next_stage_idx += 1
 
         self.submission_stage = self.tasklist[next_stage_idx]
+        
 
         if self.submission_stage != "done":
             print(f"👉 Next task: {self.submission_stage}")
+            self.logger.info(f"[STAGE] Go to stage {self.submission_stage}")
             return dict(self.results)
         else:
             snapshot = dict(self.results)
+            self.logger.info(f"[STAGE] Done, recover fault")
             self.problem.recover_fault()
+            self.logger.info(f"[STAGE] Undeploy app")
             self.undeploy_app()
             return snapshot
 
@@ -189,9 +201,13 @@ class Conductor:
         print("Deploying Prometheus…")
         self.prometheus.deploy()
 
+        self.logger.info(f"[ENV] Set up neccesary components: metrics-server, Khaos, OpenEBS, Prometheus")
         print("Deploying and starting workload")
         self.problem.app.deploy()
+        self.logger.info(f"[ENV] Deploy application: {self.problem.app.name}")
+        
         self.problem.app.start_workload()
+        self.logger.info(f"[ENV] Start workload")
 
     def undeploy_app(self):
         """Teardown problem.app and, if no other apps running, OpenEBS/Prometheus."""

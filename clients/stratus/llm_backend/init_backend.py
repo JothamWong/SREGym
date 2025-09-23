@@ -131,7 +131,7 @@ def get_llm_backend_for_tools():
             thinking_tools=THINKING_TOOLS,
             thinking_budget_tools=THINKING_BUDGET_TOOLS,
         )
-    else:
+    elif PROVIDER == "openai":
         return LiteLLMBackend(
             provider=PROVIDER,
             model_name=MODEL_TOOLS,
@@ -145,4 +145,19 @@ def get_llm_backend_for_tools():
             max_tokens=MAX_TOKENS_TOOLS,
             thinking_tools=THINKING_TOOLS,
             thinking_budget_tools=THINKING_BUDGET_TOOLS,
+        )
+    elif PROVIDER == "gemini":
+        return LiteLLMBackend(
+            provider=PROVIDER,
+            model_name=MODEL_TOOLS,
+            url=URL_TOOLS, # not used
+            api_key=API_KEY_TOOLS,
+            api_version=API_VERSION_TOOLS,
+            seed=SEED_TOOLS,
+            top_p=TOP_P_TOOLS,
+            temperature=TEMPERATURE_TOOLS,
+            reasoning_effort=REASONING_EFFORT_TOOLS,
+            thinking_tools=THINKING_TOOLS,
+            thinking_budget_tools=THINKING_BUDGET_TOOLS,
+            max_tokens=MAX_TOKENS_TOOLS,
         )

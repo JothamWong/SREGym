@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ibm import ChatWatsonx
 from langchain_litellm import ChatLiteLLM
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from requests.exceptions import HTTPError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -85,9 +86,20 @@ class LiteLLMBackend:
                     system_message.content = system_prompt
                 # logger.info(f"inserting [{system_message}] at the beginning of messages")
                 prompt_messages.insert(0, system_message)
+                arena_logger = logging.getLogger("srearena-global")
+                arena_logger.info(f"[PROMPT] (inserted system prompt at the beginning) \n {system_message}")
         else:
             raise ValueError(f"messages must be either a string or a list of dicts, but got {type(messages)}")
 
+        '''
+        messsage_content_all = ""
+        for message in prompt_messages:
+            messsage_content_all += message.content + "\n"
+            # print(f"[[PROMPT]] {message.content}")
+        arena_logger = logging.getLogger("srearena-global")
+        arena_logger.info(f"[PROMPT] {messsage_content_all}")
+        '''
+        
         if self.provider == "openai":
             llm = ChatOpenAI(
                 model=self.model_name,
@@ -101,6 +113,14 @@ class LiteLLMBackend:
                 project_id=os.environ["WX_PROJECT_ID"],
                 apikey=self.api_key,
                 temperature=self.temperature,
+            )
+        elif self.provider == "gemini":
+            # Requires env var GOOGLE_API_KEY to be set
+            llm = ChatGoogleGenerativeAI(
+                model=self.model_name,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                google_api_key=self.api_key,
             )
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
