@@ -206,8 +206,11 @@ def check():
     ], capture=True)
     try:
         j = json.loads(out)
-        for t in j.get("data", {}).get("activeTargets", []):
+        targets = j.get("data", {}).get("activeTargets", [])
+        for t in targets:
             print("Target:", t["labels"].get("job"), t["health"], flush=True)
+        print(f"[done] listed {len(targets)} targets", flush=True)
+
     except Exception:
         print(out, flush=True)
 
