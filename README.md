@@ -14,9 +14,9 @@
 </div>
 
 
-SREArena is a unified framework to enable the design, development, and evaluation of autonomous AIOps agents that, additionally, serve the purpose of building reproducible, standardized, interoperable and scalable benchmarks. SREArena can deploy microservice cloud environments, inject faults, generate workloads, and export telemetry data, while orchestrating these components and providing interfaces for interacting with and evaluating agents. 
+SREArena is a unified framework to enable the design, development, and evaluation of autonomous AIOps agents and, additionally, serve the purpose of building reproducible, standardized, interoperable, and scalable benchmarks. SREArena offers a Kubernetes-based experiment environment that deploy cloud applications, inject faults, generate workloads, and export telemetry data, while orchestrating these components with programmable interfaces. 
 
-Moreover, SREArena provides a built-in benchmark suite with a set of problems to evaluate AIOps agents in an interactive environment. This suite can be easily extended to meet user-specific needs.
+Moreover, SREArena provides a benchmark suite with a set of problems to evaluate AIOps agents in an interactive environment. The benchmark suite can be easily extended to meet user- and application-specific needs.
 
 ### Problems
 See a complete problem list with descriptions [here](https://docs.google.com/spreadsheets/d/1FGIeLNcKsHjrZGQ_VJcQRGl6oTmYyzjW0_ve5tfM_eg/edit?usp=sharing).
