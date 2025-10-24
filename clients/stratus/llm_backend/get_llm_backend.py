@@ -6,6 +6,7 @@ import time
 from typing import Dict, Optional
 
 import litellm
+import openai
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ibm import ChatWatsonx
@@ -125,16 +126,27 @@ class LiteLLMBackend:
                 completion = llm.invoke(input=prompt_messages)
                 # logger.info(f"llm response: {completion}")
                 return completion
-            except HTTPError as e:
-                # if e.response.status_code == 429 or e.response.status_code == 502 or e.response.status_code == 400:  # Rate-limiting error
+            except openai.BadRequestError as e:
+                # BadRequestError indicates malformed request (e.g., missing tool responses)
+                # Don't retry as the request itself is invalid
+                logger.error(f"Bad request error - request is malformed: {e}")
+                logger.error(f"Error details: {e.response.json() if hasattr(e, 'response') else 'No response details'}")
+                logger.error("This often happens when tool_calls don't have matching tool response messages.")
+                logger.error(
+                    f"Last few messages: {prompt_messages[-3:] if len(prompt_messages) >= 3 else prompt_messages}"
+                )
+                raise
+            except (openai.RateLimitError, HTTPError) as e:
+                # Rate-limiting errors - retry with exponential backoff
                 logger.warning(
                     f"Rate-limited. Retrying in {retry_delay} seconds... (Attempt {attempt + 1}/{LLM_QUERY_MAX_RETRIES})"
                 )
                 time.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
-                # else:
-                #     logger.error(f"HTTP error occurred: {e}")
-                #     raise
+            except openai.APIError as e:
+                # Other OpenAI API errors
+                logger.error(f"OpenAI API error occurred: {e}")
+                raise
             except Exception as e:
                 logger.error(f"An unexpected error occurred: {e}")
                 raise
