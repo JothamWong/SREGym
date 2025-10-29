@@ -9,6 +9,7 @@
 [![Slack](https://img.shields.io/badge/-Slack-4A154B?style=flat-square&logo=slack&logoColor=white)](https://join.slack.com/t/SREGym/shared_invite/zt-3gvqxpkpc-RvCUcyBEMvzvXaQS9KtS_w)
 </div>
 
+<!-- TODO: Rewrite overview and add figure. -->
 
 SREGym is a unified framework to enable the design, development, and evaluation of autonomous AIOps agents and, additionally, serve the purpose of building reproducible, standardized, interoperable, and scalable benchmarks. SREGym offers a Kubernetes-based experiment environment that deploy cloud applications, inject faults, generate workloads, and export telemetry data, while orchestrating these components with programmable interfaces. 
 
@@ -43,7 +44,7 @@ uv run pre-commit install
 Choose either a) or b) to set up your cluster and then proceed to the next steps.
 
 ### a) Kubernetes Cluster (Recommended)
-SREGym supports any remote kubernetes cluster that your `kubectl` context is set to, whether it's a cluster from a cloud provider or one you build yourself. 
+SREGym supports any kubernetes cluster that your `kubectl` context is set to, whether it's a cluster from a cloud provider or one you build yourself. 
 
 We have an Ansible playbook to setup clusters on providers like [CloudLab](https://www.cloudlab.us/) and our own machines. Follow this [README](./scripts/ansible/README.md) to set up your own cluster.
 
@@ -67,8 +68,8 @@ SREGym can be used in the following ways:
 
 ### Evaluate agent on SREGym
 
-#### Run our demo agent "Stratus"
-We have ported [the Stratus agent](https://github.com/xlab-uiuc/stratus) to SREGym as a demo agent.
+#### Run the Stratus agent
+We have ported [Stratus](https://github.com/xlab-uiuc/stratus) to SREGym as a demo agent.
 
 To start, first create your `.env`:
 ```bash
@@ -89,6 +90,7 @@ The dashboard runs automatically when you start the benchmark with `python main.
 
 You can access the dashboard at `http://localhost:11451` in your web browser.
 
+<!-- TODO: Rewrite this section -->
 #### Run your agent on SREGym
 SREGym makes it extremely easy to develop and evaluate your agents, thanks to its decoupled design. 
 There are at most 4 phases in each problem of SREGym:
@@ -105,15 +107,18 @@ There are at most 4 phases in each problem of SREGym:
 
    **Expected submission**: empty submission to indicate that the agent is satisfied with the cluster.
 
-To configure what tasks you want the conductor to run on a particular problem, edit its entry (identified by problem_id) in [`tasklist.yml`](./SREGym/conductor/tasklist.yml). Specify any task(s) of `detection`, `localization` or `mitigation` (in this order) to tell the conductor to run them. `noop` is automatically assumed to be the starting stage of a problem. If there is no entry for a problem, the conductor will assume that all tasks are to be run for that one. `localization` and `mitigation` may be skipped if there is corresponding oracle attached to the problem. Example:
-
+### Task list
+SREGym will evaluate all problems and tasks in the task list (`tasklist.yaml`). By default, it contains every problem and task, and follows this format for each problem:
 ```yaml
 k8s_target_port-misconfig:
   - detection
+  - localization
   - mitigation
 ```
 
-The entry above tells the conductor to start at `noop` then run `detection` and `mitigation` when starting `k8s_target_port-misconfig`, skipping `localization`.
+To configure what tasks you want the conductor to run on a particular problem, edit its entry (identified by problem_id) in [`tasklist.yml`](./SREGym/conductor/tasklist.yml). Specify any task(s) of `detection`, `localization` or `mitigation` (in this order) to tell the conductor to run them. `noop` is automatically assumed to be the starting stage of a problem. If there is no entry for a problem, the conductor will assume that all tasks are to be run for that one. `localization` and `mitigation` may be skipped if there is corresponding oracle attached to the problem.
+
+### MCP Servers
 
 The benchmark is driven by agent submissions. The benchmark expects the agent to submit a `POST` HTTP API call to the `http://localhost:8000/submit` HTTP endpoint.
 Each submission pushes the benchmark to the next phase.
@@ -133,7 +138,6 @@ demonstrates basic usages of these MCP servers in an agent.
 
 ## Acknowledgements
 Thank you to [Laude Institute](https://www.laude.org/) for supporting this project.
-
 
 ## License
 Licensed under the [MIT](LICENSE.txt) license.
