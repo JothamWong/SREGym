@@ -68,6 +68,12 @@ class Conductor:
         file_dir = Path(__file__).resolve().parent
         tasklist_path = file_dir / "tasklist.yml"
 
+        # If tasklist file doesn't exist, default to running all tasks
+        if not tasklist_path.exists():
+            self.local_logger.info("No tasklist.yml found. Defaulting to running all tasks for this problem.")
+            self.tasklist = ["noop", "detection", "localization", "mitigation", "done"]
+            return
+
         with open(tasklist_path, "r") as f:
             tasklist = yaml.safe_load(f)
             if not tasklist:
