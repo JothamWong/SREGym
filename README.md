@@ -194,7 +194,8 @@ The Stratus agent in [`clients/stratus`](https://github.com/xlab-uiuc/SREGym/tre
 SREGym provides a dashboard to monitor the status of your evaluation. The dashboard runs automatically when you start the benchmark with `python main.py` and can be accessed at `http://localhost:11451` in your web browser.
 
 ## Acknowledgements
-We thank the [Laude Institute](https://www.laude.org/) for supporting this project.
+This project is generously supported by a Slingshot grant from the [Laude Institute](https://www.laude.org/).
+![Laude Institute](./assets/laude-slingshots.jpg)
 
 ## License
 Licensed under the [MIT](LICENSE.txt) license.
