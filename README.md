@@ -197,7 +197,6 @@ SREGym provides a dashboard to monitor the status of your evaluation. The dashbo
 
 ## Acknowledgements
 This project is generously supported by a Slingshot grant from the [Laude Institute](https://www.laude.org/).
-![Laude Institute](./assets/laude-slingshots.jpg)
 
 ## License
 Licensed under the [MIT](LICENSE.txt) license.
