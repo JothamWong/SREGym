@@ -12,13 +12,13 @@ from rich.console import Console
 
 from dashboard.dashboard_app import SREGymDashboardServer
 from dashboard.proxy import LogProxy
+from logger import init_logger
 from mcp_server.configs.load_all_cfg import mcp_server_cfg
 from mcp_server.sregym_mcp_server import app as mcp_app
 from sregym.agent_launcher import AgentLauncher
-from sregym.agent_registry import get_agent
+from sregym.agent_registry import get_agent, list_agents
 from sregym.conductor.conductor import Conductor
 from sregym.conductor.conductor_api import request_shutdown, run_api
-from logger import init_logger
 
 LAUNCHER = AgentLauncher()
 
@@ -39,42 +39,48 @@ def driver_loop(conductor: Conductor):
         console = Console()
         # give the API a moment to bind
         await asyncio.sleep(1)
-
+        agents_to_start = list_agents()
         all_results = []
-        for pid in conductor.problems.get_problem_ids():
-            console.log(f"\n🔍 Starting problem: {pid}")
+        for agent_name in agents_to_start.keys():
+            console.log(f"Starting agent now: {agent_name}")
+            conductor.register_agent(agent_name)
+            all_results_for_agent = []
+            for pid in conductor.problems.get_problem_ids():
+                console.log(f"\n🔍 Starting problem: {pid}")
 
-            conductor.problem_id = pid
+                conductor.problem_id = pid
 
-            await conductor.start_problem()
-            agent_to_start = os.environ.get("SREGYM_AGENT", "stratus")
-            reg = get_agent(agent_to_start)
-            if reg:
-                await LAUNCHER.ensure_started(reg)
+                await conductor.start_problem()
 
-            # Poll until grading completes
-            while conductor.submission_stage != "done":
-                await asyncio.sleep(1)
+                reg = get_agent(agent_name)
+                if reg:
+                    await LAUNCHER.ensure_started(reg)
 
-            console.log(f"✅ Completed {pid}: results={conductor.results}")
+                # Poll until grading completes
+                while conductor.submission_stage != "done":
+                    await asyncio.sleep(1)
 
-            snapshot = {"problem_id": pid}
-            for stage, outcome in conductor.results.items():
-                if isinstance(outcome, dict):
-                    for k, v in outcome.items():
-                        snapshot[f"{stage}.{k}"] = v
-                else:
-                    snapshot[stage] = outcome
-            all_results.append(snapshot)
+                console.log(f"✅ Completed {pid}: results={conductor.results}")
 
-            fieldnames = sorted({key for row in all_results for key in row.keys()})
-            current_date_time = get_current_datetime_formatted()
-            csv_path = f"{current_date_time}_arena_{pid}_results.csv"
-            with open(csv_path, "w", newline="") as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(all_results)
-            print(f"✅ Problem {pid} complete! Results written to {csv_path}")
+                snapshot = {"problem_id": pid}
+                for stage, outcome in conductor.results.items():
+                    if isinstance(outcome, dict):
+                        for k, v in outcome.items():
+                            snapshot[f"{stage}.{k}"] = v
+                    else:
+                        snapshot[stage] = outcome
+                all_results_for_agent.append(snapshot)
+
+                fieldnames = sorted({key for row in all_results_for_agent for key in row.keys()})
+                current_date_time = get_current_datetime_formatted()
+                csv_path = f"{agent_name}_{current_date_time}_arena_{pid}_results.csv"
+                with open(csv_path, "w", newline="") as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(all_results_for_agent)
+                print(f"✅ Problem {pid} for agent {agent_name} complete! Results written to {csv_path}")
+                entry_for_agent = {agent_name: all_results_for_agent}
+                all_results.append(entry_for_agent)
 
         return all_results
 
@@ -146,10 +152,7 @@ def main():
     time.sleep(5)
     """
 
-    # Get agent name from environment variable or default to "agent"
-    agent_name = os.environ.get("SREGYM_AGENT", "agent")
     conductor = Conductor()
-    conductor.register_agent(agent_name)
 
     # Start the driver in the background; it will call request_shutdown() when finished
     driver_thread = threading.Thread(
@@ -182,14 +185,20 @@ def main():
     results = getattr(main, "results", [])
 
     if results:
-        fieldnames = sorted({key for row in results for key in row.keys()})
-        current_date_time = get_current_datetime_formatted()
-        csv_path = f"{current_date_time}_{agent_name}_ALL_results.csv"
-        with open(csv_path, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(results)
-        print(f"✅ Benchmark complete! Results written to {csv_path}")
+        aggregated = {}
+        for entry in results:
+            for agent_name, agent_rows in entry.items():
+                aggregated.setdefault(agent_name, []).extend(agent_rows)
+
+        for agent_name, agent_results in aggregated.items():
+            fieldnames = sorted({key for row in agent_results for key in row.keys()})
+            current_date_time = get_current_datetime_formatted()
+            csv_path = f"{current_date_time}_{agent_name}_ALL_results.csv"
+            with open(csv_path, "w", newline="") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(agent_results)
+            print(f"✅ Benchmark complete! Results for {agent_name} written to {csv_path}")
     else:
         print("⚠️ No results to write.")
 
