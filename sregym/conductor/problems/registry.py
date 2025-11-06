@@ -78,9 +78,7 @@ class ProblemRegistry:
             "incorrect_image": IncorrectImage,
             "incorrect_port_assignment": IncorrectPortAssignment,
             "misconfig_app_hotel_res": MisconfigAppHotelRes,
-            "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(
-                app_name="astronomy_shop", faulty_service="frontend"
-            ),
+            "missing_env_variable_astronomy_shop": lambda: MissingEnvVariable(app_name="astronomy_shop", faulty_service="frontend" ),
             "revoke_auth_mongodb-1": lambda: MongoDBRevokeAuth(faulty_service="mongodb-geo"),
             "revoke_auth_mongodb-2": lambda: MongoDBRevokeAuth(faulty_service="mongodb-rate"),
             "storage_user_unregistered-1": lambda: MongoDBUserUnregistered(faulty_service="mongodb-geo"),
