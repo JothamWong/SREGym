@@ -164,112 +164,6 @@ class LocalizationOracle(Oracle):
             "is_subset": False,  # TODO: enable subset match
         }
 
-    '''
-    def evaluate_(self, solution) -> dict[str, Any]:
-        """Compare Kubernetes ground truth UIDs with agent-provided solution (expected values)."""
-        ground_truth = self.get_ground_truth(self.problem)
-        comparison = {}
-        problem_name = getattr(self.problem, "problem_id", str(self.problem))
-
-        for key, truth_uid in ground_truth.items():
-            expected_uid = (
-                solution.get(key)
-                if isinstance(solution, dict)
-                else solution[0] if isinstance(solution, list) else str(solution)
-            )
-
-            comparison[key] = {
-    def get_ground_truth
-                "ground_truth_uid": truth_uid,
-                "expected_uid": expected_uid,
-                "match": expected_uid == truth_uid,
-            }
-
-        return {
-            "problem": problem_name,
-            "results": comparison,
-            "success": any(v["match"] for v in comparison.values()),
-        }
-    '''
-
-    '''
-    def get_ground_truth(self, problem: str) -> dict[str, Any]:
-        """Fetch ground truth UIDs from Kubernetes dynamically.
-        - Includes both Service and Pod UIDs for faulty services.
-        - Supports Kompose (`io.kompose.service`) and standard (`app`) labels.
-        - Falls back to all pods if no match is found.
-        """
-        try:
-            try:
-                config.load_incluster_config()
-            except ConfigException:
-                config.load_kube_config()
-        except Exception as e:
-            raise RuntimeError(f"Failed to load kube config: {e}")
-
-        core_v1 = client.CoreV1Api()
-        ns = self.namespace
-
-        faulty_services: list[str] = []
-        if hasattr(self.problem, "faulty_service"):
-            raw = getattr(self.problem, "faulty_service")
-            if isinstance(raw, list):
-                faulty_services.extend(raw)
-            elif isinstance(raw, str):
-                faulty_services.append(raw.strip("[]'\" "))
-        elif hasattr(self.problem, "faulty_services"):
-            raw = getattr(self.problem, "faulty_services", [])
-            if isinstance(raw, list):
-                faulty_services.extend(raw)
-            elif isinstance(raw, str):
-                faulty_services.append(raw.strip("[]'\" "))
-
-        faulty_services = [s for s in faulty_services if s]
-        faulty_services = list(dict.fromkeys(faulty_services))
-
-        print(f"[DEBUG] Namespace: {ns}")
-        print(f"[DEBUG] Faulty services: {faulty_services}")
-
-        results: dict[str, Any] = {}
-
-        if faulty_services:
-            for svc in faulty_services:
-                try:
-                    try:
-                        service_obj = core_v1.read_namespaced_service(svc, namespace=ns)
-                        svc_uid = service_obj.metadata.uid
-                        results[f"service/{svc}"] = svc_uid
-                        print(f"[INFO] Found service '{svc}' (UID: {svc_uid})")
-                    except client.exceptions.ApiException as e:
-                        print(f"[WARN] No service named '{svc}' in '{ns}' ({e.reason})")
-
-                    pods = core_v1.list_namespaced_pod(namespace=ns, label_selector=f"io.kompose.service={svc}").items
-
-                    if not pods:
-                        pods = core_v1.list_namespaced_pod(namespace=ns, label_selector=f"app={svc}").items
-
-                    if not pods:
-                        print(f"[WARN] No pods found for '{svc}' — using all pods in '{ns}'.")
-                        pods = core_v1.list_namespaced_pod(namespace=ns).items
-
-                    for pod in pods:
-                        results[f"pod/{pod.metadata.name}"] = pod.metadata.uid
-                        print(f"[INFO] Found pod '{pod.metadata.name}' (UID: {pod.metadata.uid}) under service '{svc}'")
-
-                except client.exceptions.ApiException as e:
-                    print(f"[ERROR] Failed to query '{svc}' in '{ns}': {e.reason}")
-        else:
-            pods = core_v1.list_namespaced_pod(namespace=ns).items
-            for pod in pods:
-                results[f"pod/{pod.metadata.name}"] = pod.metadata.uid
-            print(f"[INFO] Using all pods in namespace '{ns}' as fallback ground truth")
-
-        if not results:
-            raise ValueError(f"No pods or services found for problem '{problem}' in namespace '{ns}'")
-
-        return results
-    '''
-
     ####### Helper functions ######
     def only_pod_of_deployment_uid(self, deployment_name: str, namespace: str) -> tuple[str, str]:
         """Return the UID and name of the only pod of a deployment. If not only or more than one pod, Raise an error."""
@@ -406,25 +300,24 @@ class LocalizationOracle(Oracle):
         """Return the UID of a clusterrolebinding."""
         return self.get_resource_uid("clusterrolebinding", clusterrolebinding_name, namespace)
 
-    '''
     def owner_of_pod(self, pod_name: str, namespace: str) -> dict[str, Any] | None:
         """
         Return the top-level owner (controller) of a pod using Kubernetes Owner References.
-        
+
         This method follows the owner chain to find the ultimate controller:
         - Pod → ReplicaSet → Deployment
         - Pod → StatefulSet (direct)
         - Pod → DaemonSet (direct)
         - Pod → Job → CronJob (if applicable)
-        
+
         Args:
             pod_name: Name of the pod
             namespace: Namespace of the pod
-            
+
         Returns:
             Dictionary with keys: 'kind', 'name', 'uid', 'api_version'
             Returns None if no owner is found or pod doesn't exist
-            
+
         Example:
             {
                 'kind': 'Deployment',
@@ -440,148 +333,115 @@ class LocalizationOracle(Oracle):
                 config.load_kube_config()
         except Exception as e:
             raise RuntimeError(f"Failed to load kube config: {e}")
-        
+
         core_v1 = client.CoreV1Api()
         apps_v1 = client.AppsV1Api()
         batch_v1 = client.BatchV1Api()
-        
+
         try:
             # Step 1: Get the pod
             pod = core_v1.read_namespaced_pod(pod_name, namespace)
         except client.exceptions.ApiException as e:
             print(f"[WARN] Pod '{pod_name}' not found in namespace '{namespace}': {e.reason}")
             return None
-        
+
         # Step 2: Get owner references from pod
         owner_refs = pod.metadata.owner_references
         if not owner_refs:
             print(f"[INFO] Pod '{pod_name}' has no owner references (may be manually created)")
             return None
-        
+
         # Step 3: Find the controller owner (controller: true)
         controller_owner = None
         for owner in owner_refs:
             if owner.controller:
                 controller_owner = owner
                 break
-        
+
         if not controller_owner:
             print(f"[WARN] Pod '{pod_name}' has no controller owner")
             return None
-        
+
         # Step 4: Handle different owner types
         owner_kind = controller_owner.kind
         owner_name = controller_owner.name
         owner_uid = controller_owner.uid
         owner_api_version = controller_owner.api_version
-        
+
         print(f"[INFO] Pod '{pod_name}' is owned by {owner_kind} '{owner_name}'")
-        
+
         # Step 5: If owner is ReplicaSet, continue up to find Deployment
         if owner_kind == "ReplicaSet":
             try:
                 replicaset = apps_v1.read_namespaced_replica_set(owner_name, namespace)
                 rs_owner_refs = replicaset.metadata.owner_references
-                
+
                 if rs_owner_refs:
                     for rs_owner in rs_owner_refs:
                         if rs_owner.controller and rs_owner.kind == "Deployment":
                             print(f"[INFO] ReplicaSet '{owner_name}' is owned by Deployment '{rs_owner.name}'")
                             return {
-                                'kind': 'Deployment',
-                                'name': rs_owner.name,
-                                'uid': rs_owner.uid,
-                                'api_version': rs_owner.api_version,
-                                'intermediate_owner': {
-                                    'kind': 'ReplicaSet',
-                                    'name': owner_name,
-                                    'uid': owner_uid
-                                }
+                                "kind": "Deployment",
+                                "name": rs_owner.name,
+                                "uid": rs_owner.uid,
+                                "api_version": rs_owner.api_version,
+                                "intermediate_owner": {"kind": "ReplicaSet", "name": owner_name, "uid": owner_uid},
                             }
-                
+
                 # If ReplicaSet has no owner, return ReplicaSet itself
                 print(f"[INFO] ReplicaSet '{owner_name}' has no owner (may be manually created)")
-                return {
-                    'kind': 'ReplicaSet',
-                    'name': owner_name,
-                    'uid': owner_uid,
-                    'api_version': owner_api_version
-                }
+                return {"kind": "ReplicaSet", "name": owner_name, "uid": owner_uid, "api_version": owner_api_version}
             except client.exceptions.ApiException as e:
                 print(f"[WARN] ReplicaSet '{owner_name}' not found: {e.reason}")
                 # Fallback: return ReplicaSet info even though we can't verify it
-                return {
-                    'kind': 'ReplicaSet',
-                    'name': owner_name,
-                    'uid': owner_uid,
-                    'api_version': owner_api_version
-                }
-        
+                return {"kind": "ReplicaSet", "name": owner_name, "uid": owner_uid, "api_version": owner_api_version}
+
         # Step 6: If owner is Job, check if it's owned by CronJob
         elif owner_kind == "Job":
             try:
                 job = batch_v1.read_namespaced_job(owner_name, namespace)
                 job_owner_refs = job.metadata.owner_references
-                
+
                 if job_owner_refs:
                     for job_owner in job_owner_refs:
                         if job_owner.controller and job_owner.kind == "CronJob":
                             print(f"[INFO] Job '{owner_name}' is owned by CronJob '{job_owner.name}'")
                             return {
-                                'kind': 'CronJob',
-                                'name': job_owner.name,
-                                'uid': job_owner.uid,
-                                'api_version': job_owner.api_version,
-                                'intermediate_owner': {
-                                    'kind': 'Job',
-                                    'name': owner_name,
-                                    'uid': owner_uid
-                                }
+                                "kind": "CronJob",
+                                "name": job_owner.name,
+                                "uid": job_owner.uid,
+                                "api_version": job_owner.api_version,
+                                "intermediate_owner": {"kind": "Job", "name": owner_name, "uid": owner_uid},
                             }
-                
+
                 # If Job has no owner, return Job itself
-                return {
-                    'kind': 'Job',
-                    'name': owner_name,
-                    'uid': owner_uid,
-                    'api_version': owner_api_version
-                }
+                return {"kind": "Job", "name": owner_name, "uid": owner_uid, "api_version": owner_api_version}
             except client.exceptions.ApiException as e:
                 print(f"[WARN] Job '{owner_name}' not found: {e.reason}")
-                return {
-                    'kind': 'Job',
-                    'name': owner_name,
-                    'uid': owner_uid,
-                    'api_version': owner_api_version
-                }
-        
+                return {"kind": "Job", "name": owner_name, "uid": owner_uid, "api_version": owner_api_version}
+
         # Step 7: Direct owners (StatefulSet, DaemonSet, etc.)
         else:
-            return {
-                'kind': owner_kind,
-                'name': owner_name,
-                'uid': owner_uid,
-                'api_version': owner_api_version
-            }
-    
+            return {"kind": owner_kind, "name": owner_name, "uid": owner_uid, "api_version": owner_api_version}
+
     def pods_of_owner(self, owner_kind: str, owner_name: str, namespace: str) -> list[dict[str, Any]]:
         """
         Find all pods owned by a specific controller (Deployment, StatefulSet, etc.).
-        
+
         This is the reverse operation of owner_of_pod. It finds all pods that belong
         to a given controller by following the owner chain.
-        
+
         Args:
             owner_kind: Kind of the owner (Deployment, StatefulSet, DaemonSet, etc.)
             owner_name: Name of the owner
             namespace: Namespace of the owner
-            
+
         Returns:
             List of pod information dictionaries, each containing:
             - 'name': Pod name
             - 'uid': Pod UID
             - 'phase': Pod phase (Running, Pending, etc.)
-            
+
         Example:
             [
                 {
@@ -599,82 +459,86 @@ class LocalizationOracle(Oracle):
                 config.load_kube_config()
         except Exception as e:
             raise RuntimeError(f"Failed to load kube config: {e}")
-        
+
         core_v1 = client.CoreV1Api()
         apps_v1 = client.AppsV1Api()
         pods_info = []
-        
+
         try:
             # Get all pods in the namespace
             all_pods = core_v1.list_namespaced_pod(namespace).items
-            
+
             # Handle different owner types
             if owner_kind == "Deployment":
                 # Find ReplicaSets owned by this Deployment
                 rs_list = apps_v1.list_namespaced_replica_set(namespace).items
                 matching_rs_names = set()
-                
+
                 for rs in rs_list:
                     rs_owner_refs = rs.metadata.owner_references
                     if rs_owner_refs:
                         for rs_owner in rs_owner_refs:
                             if rs_owner.controller and rs_owner.kind == "Deployment" and rs_owner.name == owner_name:
                                 matching_rs_names.add(rs.metadata.name)
-                
+
                 # Find pods owned by matching ReplicaSets
                 for pod in all_pods:
                     pod_owner_refs = pod.metadata.owner_references
                     if pod_owner_refs:
                         for pod_owner in pod_owner_refs:
-                            if pod_owner.controller and pod_owner.kind == "ReplicaSet" and pod_owner.name in matching_rs_names:
-                                pods_info.append({
-                                    'name': pod.metadata.name,
-                                    'uid': pod.metadata.uid,
-                                    'phase': pod.status.phase,
-                                    'node_name': pod.spec.node_name if pod.spec.node_name else None
-                                })
-            
+                            if (
+                                pod_owner.controller
+                                and pod_owner.kind == "ReplicaSet"
+                                and pod_owner.name in matching_rs_names
+                            ):
+                                pods_info.append(
+                                    {
+                                        "name": pod.metadata.name,
+                                        "uid": pod.metadata.uid,
+                                        "phase": pod.status.phase,
+                                        "node_name": pod.spec.node_name if pod.spec.node_name else None,
+                                    }
+                                )
+
             elif owner_kind in ["StatefulSet", "DaemonSet"]:
                 # Direct ownership for StatefulSet and DaemonSet
                 for pod in all_pods:
                     pod_owner_refs = pod.metadata.owner_references
                     if pod_owner_refs:
                         for pod_owner in pod_owner_refs:
-                            if (pod_owner.controller and 
-                                pod_owner.kind == owner_kind and j
-                                pod_owner.name == owner_name):
-                                pods_info.append({
-                                    'name': pod.metadata.name,
-                                    'uid': pod.metadata.uid,
-                                    'phase': pod.status.phase,
-                                    'node_name': pod.spec.node_name if pod.spec.node_name else None
-                                })
-            
+                            if pod_owner.controller and pod_owner.kind == owner_kind and pod_owner.name == owner_name:
+                                pods_info.append(
+                                    {
+                                        "name": pod.metadata.name,
+                                        "uid": pod.metadata.uid,
+                                        "phase": pod.status.phase,
+                                        "node_name": pod.spec.node_name if pod.spec.node_name else None,
+                                    }
+                                )
+
             elif owner_kind == "Job":
                 # Direct ownership for Job
                 for pod in all_pods:
                     pod_owner_refs = pod.metadata.owner_references
                     if pod_owner_refs:
                         for pod_owner in pod_owner_refs:
-                            if (pod_owner.controller and 
-                                pod_owner.kind == "Job" and 
-                                pod_owner.name == owner_name):
-                                pods_info.append({
-                                    'name': pod.metadata.name,
-                                    'uid': pod.metadata.uid,
-                                    'phase': pod.status.phase,
-                                    'node_name': pod.spec.node_name if pod.spec.node_name else None
-                                })
-            
+                            if pod_owner.controller and pod_owner.kind == "Job" and pod_owner.name == owner_name:
+                                pods_info.append(
+                                    {
+                                        "name": pod.metadata.name,
+                                        "uid": pod.metadata.uid,
+                                        "phase": pod.status.phase,
+                                        "node_name": pod.spec.node_name if pod.spec.node_name else None,
+                                    }
+                                )
+
             else:
                 print(f"[WARN] Unsupported owner kind: {owner_kind}")
                 return []
-            
+
             print(f"[INFO] Found {len(pods_info)} pod(s) owned by {owner_kind} '{owner_name}'")
             return pods_info
-            
+
         except Exception as e:
             print(f"[ERROR] Failed to find pods for {owner_kind} '{owner_name}': {e}")
             return []
-    
-    '''
