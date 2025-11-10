@@ -15,6 +15,7 @@ from clients.stratus.tools.kubectl_tools import (
     GetPreviousRollbackableCmd,
     RollbackCommand,
 )
+from clients.stratus.tools.localization import get_resource_uid
 from clients.stratus.tools.prometheus_tools import get_metrics
 from clients.stratus.tools.submit_tool import fake_submit_tool, rollback_submit_tool, submit_tool
 from clients.stratus.tools.wait_tool import wait_tool
@@ -41,6 +42,8 @@ def str_to_tool(tool_struct: dict[str, str]):
         return get_operations
     elif tool_struct["name"] == "get_metrics":
         return get_metrics
+    elif tool_struct["name"] == "get_resource_uid":
+        return get_resource_uid
     elif tool_struct["name"] == "submit_tool":
         return submit_tool
     elif tool_struct["name"] == "f_submit_tool":

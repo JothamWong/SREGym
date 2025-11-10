@@ -61,12 +61,22 @@ async_tools:
               "kubectl config get",
               INTERACTIVE COMMANDS ARE NOT SUPPORTED, e.g. "kubectl edit" 
               INTERACTIVE FLAGS ARE NOT SUPPORTED, e.g., "kubectl logs -f"
+  - name: get_resource_uid
+    description: |
+      Use this tool to retrieve the UID of a specified resource.
+      
+          Args:
+              resource_type (str): The type of the resource (e.g., 'pod', 'service', 'deployment', 'statefulset', 'persistentvolumeclaim', 'persistentvolume', 'configmap', 'replicaset', 'memoryquota', 'ingress', 'networkpolicy' etc.).
+              resource_name (str): The name of the resource.
+              namespace (str): The namespace where the resource is located.
+          Returns:
+              str: The UID of the specified resource.
   - name: submit_tool
     description: |
       The tool to submit benchmark results
           
           Args:
-              ans (str): the answer you would like to submit to the benchmark. You should submit a python-formatted list of string(s) to indicate the faulty components. And you should use the single quotes to wrap the string(s) in the list.
+              ans (str): the answer you would like to submit to the benchmark. You should submit a python-formatted list of string(s) to indicate the faulty components where the root cause(s) is(are) in. Eash string should be a Kubernetes UID of a resource (You can call the `get_resource_uid` tool to get the UID). And you should use the single quotes to wrap the string(s) in the list.
 prompts_path: localization_agent_prompts.yaml
 
 

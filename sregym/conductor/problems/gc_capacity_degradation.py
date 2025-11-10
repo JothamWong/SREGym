@@ -17,7 +17,7 @@ class GCCapacityDegradation(Problem):
 
         super().__init__(app=self.app, namespace=self.app.namespace)
         # === Attach evaluation oracles ===
-        self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
+        # self.localization_oracle = LocalizationOracle(problem=self, expected=[self.faulty_service])
 
     @mark_fault_injected
     def inject_fault(self):
