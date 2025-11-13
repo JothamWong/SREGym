@@ -226,7 +226,7 @@ def install_git():
         _install_brew_if_needed()
         shellenv = _brew_shellenv_cmd()
         subprocess.run(
-            ["bash", "-lc", f"{shellenv}; brew --version; brew install git"],
+            ["bash", "-ic", f"{shellenv}; brew --version; brew install git"],
             env=ENV,
             stdin=subprocess.DEVNULL,
             timeout=TIMEOUT,
