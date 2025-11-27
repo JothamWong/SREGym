@@ -1,0 +1,42 @@
+name: Run SRE-QL Queries
+
+on:
+  push:
+
+jobs:
+  codeql-custom:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download CodeQL CLI
+      run: |
+        curl -L https://github.com/github/codeql-action/releases/latest/download/codeql-linux64.zip -o codeql.zip
+        unzip codeql.zip
+        mv codeql /opt/codeql
+        echo "/opt/codeql" >> $GITHUB_PATH
+
+    - name: Create CodeQL Database
+      run: |
+        codeql database create sreql-db \
+          --language=python \
+          --source-root=. \
+          --overwrite
+
+    - name: Run SRE-QL Queries (CSV)
+      run: |
+        codeql database analyze sreql-db \
+          "tests/sre-ql/queries" \
+          --format=csv \
+          --output=results.csv
+
+    - name: Upload CSV
+      uses: actions/upload-artifact@v4
+      with:
+        name: sreql-results-csv
+        path: results.csv
