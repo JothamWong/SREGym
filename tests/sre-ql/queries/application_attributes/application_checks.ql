@@ -11,9 +11,6 @@ class ApplicationSubclass extends Class {
   ApplicationSubclass() {
     // Direct inheritance from Application
     this.getABase().(Name).getId() = "Application"
-    or
-    // Transitive inheritance (inherits through other classes)
-    this.getABaseClass+().getName() = "Application"
   }
 }
 
