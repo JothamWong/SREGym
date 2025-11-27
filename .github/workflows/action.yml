@@ -20,6 +20,10 @@ jobs:
         mv codeql /opt/codeql
         echo "/opt/codeql" >> $GITHUB_PATH
 
+    - name: Install CodeQL Packs
+      run: |
+        codeql pack install tests/sre-ql
+
     - name: Create CodeQL DB
       run: |
         codeql database create sreql-db \
@@ -30,7 +34,7 @@ jobs:
     - name: Run Queries (CSV)
       run: |
         codeql database analyze sreql-db \
-          "tests/sre-ql/queries" \
+          tests/sre-ql \
           --format=csv \
           --output=results.csv
 
