@@ -11,9 +11,6 @@ class ProblemSubclass extends Class {
   ProblemSubclass() {
     // Direct inheritance from Problem
     this.getABase().(Name).getId() = "Problem"
-    or
-    // Transitive inheritance (inherits through other classes)
-    this.getABaseClass+().getName() = "Problem"
   }
 }
 
