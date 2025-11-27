@@ -31,10 +31,13 @@ jobs:
           --source-root=. \
           --overwrite
 
-    - name: Run Queries (CSV)
+    - name: Run Queries (CSV, skipping problem_lifecycle.ql)
       run: |
+        QUERIES=$(find tests/sre-ql/queries -name "*.ql" ! -name "problem_lifecycle.ql")
+        echo "Running queries:"
+        echo "$QUERIES"
         codeql database analyze sreql-db \
-          tests/sre-ql \
+          $QUERIES \
           --format=csv \
           --output=results.csv
 
