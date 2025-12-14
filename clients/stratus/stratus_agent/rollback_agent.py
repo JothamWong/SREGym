@@ -8,11 +8,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END
 from langgraph.graph import START
 
-from clients.stratus.llm_backend.init_backend import get_llm_backend_for_tools
 from clients.stratus.stratus_agent.base_agent import BaseAgent
 from clients.stratus.stratus_utils.get_starting_prompt import get_starting_prompts
 from clients.stratus.stratus_utils.str_to_tool import str_to_tool
 from clients.stratus.tools.stratus_tool_node import StratusToolNode
+from llm_backend.init_backend import get_llm_backend_for_tools
 
 logger = logging.getLogger("all.stratus.rollback")
 logger.propagate = True
@@ -38,7 +38,7 @@ class RollbackAgent(BaseAgent):
         self.graph_builder.add_node(self.tool_calling_node, self.llm_tool_call_step)
         self.graph_builder.add_node(self.process_tool_call_node, self.tool_node)
         self.graph_builder.add_node(self.post_round_process_node, self.post_round_process)
-        self.graph_builder.add_node(self.force_submit_tool_call_node, self.llm_force_submit_tool_call_node)
+        self.graph_builder.add_node(self.force_submit_tool_call_node, self.llm_force_submit_tool_call_step)
 
         self.graph_builder.add_edge(START, self.thinking_prompt_inject_node)
         self.graph_builder.add_edge(self.thinking_prompt_inject_node, self.thinking_node)
