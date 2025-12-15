@@ -7,6 +7,7 @@ if str(sregym_core_path) not in sys.path:
     sys.path.insert(0, str(sregym_core_path))
 
 import asyncio
+import json
 import time
 
 # for parsing return values from benchmark app info as python dict
@@ -79,58 +80,92 @@ def save_combined_trajectory(all_trajectories, problem_id, output_dir="."):
             "type": message.__class__.__name__,
             "content": message.content,
         }
+        # Properly serialize tool calls
         if hasattr(message, "tool_calls") and message.tool_calls:
-            msg_dict["tool_calls"] = message.tool_calls
+            serialized_tool_calls = []
+            for tc in message.tool_calls:
+                if isinstance(tc, dict):
+                    serialized_tool_calls.append(tc)
+                else:
+                    # Convert object to dict
+                    serialized_tool_calls.append({
+                        "name": getattr(tc, "name", None),
+                        "args": getattr(tc, "args", None),
+                        "id": getattr(tc, "id", None),
+                    })
+            msg_dict["tool_calls"] = serialized_tool_calls
+
+        # Properly serialize additional_kwargs
         if hasattr(message, "additional_kwargs") and message.additional_kwargs:
-            msg_dict["additional_kwargs"] = message.additional_kwargs
+            # Convert to dict and handle non-serializable objects
+            try:
+                msg_dict["additional_kwargs"] = json.loads(json.dumps(message.additional_kwargs, default=str))
+            except:
+                msg_dict["additional_kwargs"] = str(message.additional_kwargs)
+
         return msg_dict
 
-    with open(trajectory_file, "w", encoding="utf-8") as f:
-        # Write metadata
-        total_events = sum(len(traj.get("events", [])) for traj in all_trajectories)
-        metadata = {
-            "type": "metadata",
-            "problem_id": problem_id,
-            "timestamp": timestamp,
-            "timestamp_readable": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "total_stages": len(all_trajectories),
-            "total_events": total_events,
-        }
-        f.write(json.dumps(metadata) + "\n")
-
-        # Write each stage
-        for stage_data in all_trajectories:
-            stage_name = stage_data.get("stage", "unknown")
-            events = stage_data.get("events", [])
-
-            # Write stage marker
-            stage_marker = {
-                "type": "stage_start",
-                "stage": stage_name,
-                "num_events": len(events),
+    try:
+        with open(trajectory_file, "w", encoding="utf-8") as f:
+            # Write metadata
+            total_events = sum(len(traj.get("events", [])) for traj in all_trajectories)
+            metadata = {
+                "type": "metadata",
+                "problem_id": problem_id,
+                "timestamp": timestamp,
+                "timestamp_readable": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "total_stages": len(all_trajectories),
+                "total_events": total_events,
             }
-            f.write(json.dumps(stage_marker) + "\n")
+            f.write(json.dumps(metadata) + "\n")
 
-            # Write events for this stage
-            for idx, event in enumerate(events):
-                event_data = {
-                    "type": "event",
+            # Write each stage
+            for stage_idx, stage_data in enumerate(all_trajectories):
+                stage_name = stage_data.get("stage", "unknown")
+                events = stage_data.get("events", [])
+
+                # Write stage marker
+                stage_marker = {
+                    "type": "stage_start",
                     "stage": stage_name,
-                    "event_index": idx,
-                    "num_steps": event.get("num_steps", 0),
-                    "submitted": event.get("submitted", False),
-                    "rollback_stack": event.get("rollback_stack", ""),
+                    "num_events": len(events),
                 }
+                f.write(json.dumps(stage_marker) + "\n")
 
-                # Serialize messages
-                if "messages" in event and event["messages"]:
-                    event_data["messages"] = [serialize_message(msg) for msg in event["messages"]]
-                    event_data["last_message"] = serialize_message(event["messages"][-1])
+                # Write events for this stage
+                for idx, event in enumerate(events):
+                    try:
+                        event_data = {
+                            "type": "event",
+                            "stage": stage_name,
+                            "event_index": idx,
+                            "num_steps": event.get("num_steps", 0),
+                            "submitted": event.get("submitted", False),
+                            "rollback_stack": event.get("rollback_stack", ""),
+                        }
 
-                f.write(json.dumps(event_data) + "\n")
+                        # Serialize messages
+                        if "messages" in event and event["messages"]:
+                            event_data["messages"] = [serialize_message(msg) for msg in event["messages"]]
+                            event_data["last_message"] = serialize_message(event["messages"][-1])
 
-    logger.info(f"[Driver] Saved combined trajectory to {trajectory_file}")
-    return trajectory_file
+                        f.write(json.dumps(event_data) + "\n")
+                    except Exception as e:
+                        logger.error(f"[Driver] Failed to serialize event {idx} in stage {stage_name}: {e}")
+                        # Write a placeholder event to maintain continuity
+                        error_event = {
+                            "type": "event",
+                            "stage": stage_name,
+                            "event_index": idx,
+                            "error": f"Failed to serialize: {str(e)}",
+                        }
+                        f.write(json.dumps(error_event) + "\n")
+
+        logger.info(f"[Driver] Saved trajectory to {trajectory_file}")
+        return trajectory_file
+    except Exception as e:
+        logger.error(f"[Driver] Failed to save trajectory: {e}", exc_info=True)
+        return None
 
 
 async def validate_oracles(oracles: List[BaseOracle]) -> List[bool | List[OracleResult]]:
@@ -682,7 +717,6 @@ async def main():
     current_datetime = get_current_datetime_formatted()
     agent_output_df.to_csv(f"./{current_datetime}_{current_problem}_stratus_output.csv", index=False, header=True)
 
-    # Save combined trajectory
     save_combined_trajectory(all_trajectories, current_problem)
 
     logger.info("*" * 25 + f" Finished Testing {current_problem} ! " + "*" * 25)
