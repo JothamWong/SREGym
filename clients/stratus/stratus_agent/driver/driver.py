@@ -88,11 +88,13 @@ def save_combined_trajectory(all_trajectories, problem_id, output_dir="."):
                     serialized_tool_calls.append(tc)
                 else:
                     # Convert object to dict
-                    serialized_tool_calls.append({
-                        "name": getattr(tc, "name", None),
-                        "args": getattr(tc, "args", None),
-                        "id": getattr(tc, "id", None),
-                    })
+                    serialized_tool_calls.append(
+                        {
+                            "name": getattr(tc, "name", None),
+                            "args": getattr(tc, "args", None),
+                            "id": getattr(tc, "id", None),
+                        }
+                    )
             msg_dict["tool_calls"] = serialized_tool_calls
 
         # Properly serialize additional_kwargs
@@ -499,7 +501,9 @@ async def mitigation_task_main(localization_summary):
         while curr_attempt < mitigation_agent_max_retry_attempts:
             if curr_attempt == 0:
                 logger.info(f"running first try")
-                agent, mitigation_agent_last_state, graph_events = await mitigation_agent_single_run(first_run_initial_messages)
+                agent, mitigation_agent_last_state, graph_events = await mitigation_agent_single_run(
+                    first_run_initial_messages
+                )
                 all_graph_events.append({"stage": f"mitigation_attempt_{curr_attempt}", "events": graph_events})
             else:
                 logger.info(
@@ -525,7 +529,9 @@ async def mitigation_task_main(localization_summary):
                     ),
                 ]
                 logger.info(f"composed retry prompts: {retry_run_initial_messages}")
-                agent, mitigation_agent_last_state, graph_events = await mitigation_agent_retry_run(retry_run_initial_messages)
+                agent, mitigation_agent_last_state, graph_events = await mitigation_agent_retry_run(
+                    retry_run_initial_messages
+                )
                 all_graph_events.append({"stage": f"mitigation_attempt_{curr_attempt}", "events": graph_events})
 
             # recording post-run data
@@ -554,7 +560,7 @@ async def mitigation_task_main(localization_summary):
             else:
                 # here the agent fails, we make decision if we should retry
                 should_retry = curr_attempt + 1 < mitigation_agent_max_retry_attempts
-                logger.info(f"agent failed, should we retry? {"Yes!" if should_retry else "No!"}")
+                logger.info(f"agent failed, should we retry? {'Yes!' if should_retry else 'No!'}")
                 if should_retry:
                     # we should retry as we have more trials left
                     logger.info(
@@ -567,7 +573,9 @@ async def mitigation_task_main(localization_summary):
                     logger.info(f"running rollback agent to reverse progress")
                     rollback_start_time = time.perf_counter()
                     rollback_agent, rollback_agent_last_state, rollback_graph_events = await rollback_agent_main()
-                    all_graph_events.append({"stage": f"rollback_attempt_{curr_attempt}", "events": rollback_graph_events})
+                    all_graph_events.append(
+                        {"stage": f"rollback_attempt_{curr_attempt}", "events": rollback_graph_events}
+                    )
                     rollback_end_time = time.perf_counter() - rollback_start_time
                     agent_names_lst.append("rollback_agent")
                     usage_metadata = next(iter(rollback_agent.callback.usage_metadata.items()))[1]
@@ -654,7 +662,9 @@ async def main():
     # (BTS it's just diagnosis agent with different prompts)
     # here, running the file's main function should suffice
     logger.info("*" * 25 + " Starting [localization agent] for [localization] " + "*" * 25)
-    localization_agent_exec_stats, localization_agent_last_state, localization_graph_events = await localization_task_main()
+    localization_agent_exec_stats, localization_agent_last_state, localization_graph_events = (
+        await localization_task_main()
+    )
     all_trajectories.append({"stage": "localization", "events": localization_graph_events})
     agent_names.append("localization_agent")
     agent_in_tokens.append(localization_agent_exec_stats["input_tokens"])
