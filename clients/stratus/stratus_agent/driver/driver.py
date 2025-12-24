@@ -27,6 +27,8 @@ init_logger()
 
 import logging
 
+import mlflow
+
 from clients.stratus.configs.langgraph_tool_configs import LanggraphToolConfig
 from clients.stratus.stratus_agent.diagnosis_agent import single_run_with_predefined_prompts as diagnosis_single_run
 from clients.stratus.stratus_agent.localization_agent import (
@@ -608,6 +610,10 @@ async def mitigation_task_main(localization_summary):
 
 
 async def main():
+    # Enable MLflow tracing for all LangGraph agents
+    mlflow.langchain.autolog()
+    logger.info("MLflow tracing enabled")
+
     # run diagnosis agent 2 times
     # here, running the file's main function should suffice.
     # 1 for noop diagnosis
