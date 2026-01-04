@@ -36,7 +36,18 @@ async_tools:
               str: JSON object representing the dependency graph.
   - name: get_metrics
     description: |
-      Query real-time metrics data from the Prometheus instance.
+      Query real-time infrastructure and container metrics from Prometheus (e.g., CPU, Memory, Network I/O, Disk usage).
+      
+      NOTE: The Hotel Reservation microservices DO NOT expose application-level metrics (like request latency, RPS, or error rates) to Prometheus. 
+      Do not attempt to query metrics like `http_request_duration` or `grpc_server_handling_seconds`. 
+      
+      For application performance signals (latency, errors, throughput), you MUST use the `get_traces` tool (Jaeger) instead.
+      
+      Useful Metrics available:
+      - `container_cpu_usage_seconds_total`
+      - `container_memory_working_set_bytes`
+      - `container_network_transmit_bytes_total`
+      - `container_fs_writes_bytes_total`
 
           Args:
               query (str): A Prometheus Query Language (PromQL) expression used to fetch metric values.

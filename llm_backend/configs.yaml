@@ -94,9 +94,13 @@
 
 "azure-openai-gpt-4o":
   provider: "litellm"
-  model_name: "azure/gpt-4o"
+  model_name: "gpt-4o"
   api_key: "$AZURE_API_KEY"
   url: "$AZURE_API_BASE"
+
+# "jotham":
+#   "provider": "openai"
+#   "model_name": "gpt-4o"
 
 "bedrock-claude-sonnet-4.5":
   provider: "litellm"

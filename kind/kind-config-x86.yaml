@@ -11,19 +11,37 @@ nodes:
     extraMounts:
       - hostPath: /run/udev
         containerPath: /run/udev
+      # ADDED: Mount docker config to Control Plane
+      - hostPath: /local/jotham/.docker/config.json
+        containerPath: /var/lib/kubelet/config.json
+        readOnly: true
+
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
     extraMounts:
       - hostPath: /run/udev
         containerPath: /run/udev
+      # ADDED: Mount docker config to Worker 1
+      - hostPath: /local/jotham/.docker/config.json
+        containerPath: /var/lib/kubelet/config.json
+        readOnly: true
+
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
     extraMounts:
       - hostPath: /run/udev
         containerPath: /run/udev
+      # ADDED: Mount docker config to Worker 2
+      - hostPath: /local/jotham/.docker/config.json
+        containerPath: /var/lib/kubelet/config.json
+        readOnly: true
+
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
     extraMounts:
       - hostPath: /run/udev
         containerPath: /run/udev
-      
+      # ADDED: Mount docker config to Worker 3
+      - hostPath: /local/jotham/.docker/config.json
+        containerPath: /var/lib/kubelet/config.json
+        readOnly: true

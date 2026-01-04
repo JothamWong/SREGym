@@ -29,6 +29,7 @@ from sregym.conductor.problems.missing_service import MissingService
 from sregym.conductor.problems.multiple_failures import MultipleIndependentFailures
 from sregym.conductor.problems.namespace_memory_limit import NamespaceMemoryLimit
 from sregym.conductor.problems.network_policy_block import NetworkPolicyBlock
+from sregym.conductor.problems.noop_detection import NoOpApp
 from sregym.conductor.problems.operator_misoperation.invalid_affinity_toleration import (
     K8SOperatorInvalidAffinityTolerationFault,
 )
@@ -219,6 +220,10 @@ class ProblemRegistry:
             "operator_invalid_affinity_toleration": K8SOperatorInvalidAffinityTolerationFault,
             "operator_security_context_fault": K8SOperatorSecurityContextFault,
             "operator_wrong_update_strategy_fault": K8SOperatorWrongUpdateStrategyFault,
+            # ==================== NOOP ==================
+            "noop_detection_hotel_reservation": lambda: NoOpApp("hotel_reservation"),
+            "noop_detection_social_network": lambda: NoOpApp("social_network"),
+            "noop_detection_astronomy_shop": lambda: NoOpApp("astronomy_shop"),
         }
 # fmt: on
         self.kubectl = KubeCtl()

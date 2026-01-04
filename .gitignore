@@ -771,5 +771,14 @@ python-database
 *.jsonl
 sregym/generators/noise/noise_config.yaml
 mlflow.db
+astro_logs/
+csv_files/
+agent_trajectory/
+dirty.py
+hehe.py
+scrape_chat.py
+summarizer.py
+test_astronomy.sh
+logs/
 results/
 logs/
