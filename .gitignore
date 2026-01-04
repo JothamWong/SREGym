@@ -771,3 +771,4 @@ python-database
 *.jsonl
 sregym/generators/noise/noise_config.yaml
 mlflow.db
+results/
