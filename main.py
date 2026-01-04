@@ -42,7 +42,7 @@ def driver_loop(
     Args:
         conductor: The Conductor instance
         problem_filter: Optional problem ID to run. If specified, only this problem will be run.
-        agent_to_run: Agent name to run (required).
+        agent_to_run: Agent name to run (required unless use_external_harness is True).
         use_external_harness: If True, inject fault and exit without running evaluation logic.
     """
 
@@ -51,23 +51,23 @@ def driver_loop(
         # give the API a moment to bind
         await asyncio.sleep(1)
 
-        # Verify agent exists in registry
-        available_agents = list_agents(path=Path(os.path.dirname(os.path.abspath(__file__))) / "agents.yaml").keys()
-        if agent_to_run not in available_agents:
-            console.log(f"⚠️ Agent '{agent_to_run}' not found in registry. Available agents: {available_agents}")
-            sys.exit(1)
+        # Verify agent exists in registry (skip if using external harness)
+        if not use_external_harness:
+            available_agents = list_agents(path=Path(os.path.dirname(os.path.abspath(__file__))) / "agents.yaml").keys()
+            if agent_to_run not in available_agents:
+                console.log(f"⚠️ Agent '{agent_to_run}' not found in registry. Available agents: {available_agents}")
+                sys.exit(1)
 
-        console.log(f"Starting agent now: {agent_to_run}")
-        conductor.register_agent(agent_to_run)
+            console.log(f"Starting agent now: {agent_to_run}")
+            conductor.register_agent(agent_to_run)
+
         all_results_for_agent = []
 
         # Get all problem IDs and filter if needed
         problem_ids = conductor.problems.get_problem_ids()
         if problem_filter:
             if problem_filter not in problem_ids:
-                console.log(
-                    f"⚠️  Problem '{problem_filter}' not found in registry. Available problems: {problem_ids}"
-                )
+                console.log(f"⚠️  Problem '{problem_filter}' not found in registry. Available problems: {problem_ids}")
                 sys.exit(1)
             problem_ids = [problem_filter]
             console.log(f"🎯 Running single problem: {problem_filter}")
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent",
         type=str,
-        required=True,
+        default=None,
         help="Agent to run by its name (e.g., 'stratus')",
     )
     parser.add_argument(
@@ -277,5 +277,9 @@ if __name__ == "__main__":
         help="Path to noise configuration YAML file",
     )
     args = parser.parse_args()
+
+    # Validate that --agent is provided when not using external harness
+    if not args.use_external_harness and args.agent is None:
+        parser.error("--agent is required when --use-external-harness is not set")
 
     main(args)
