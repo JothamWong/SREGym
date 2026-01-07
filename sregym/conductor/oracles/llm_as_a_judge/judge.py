@@ -17,10 +17,8 @@ load_dotenv()
 
 
 class JudgmentResult(str, Enum):
-    TRUE = "True"  # Correct diagnosis
-    FALSE = "False"  # Incorrect diagnosis
-    FALSE_POSITIVE = "FalsePositive"  # Identified a problem when there isn't one
-    FALSE_NEGATIVE = "FalseNegative"  # Missed a problem that exists
+    TRUE = "True"  # Correct diagnosis - agent identified the root cause
+    FALSE = "False"  # Incorrect diagnosis - agent did not identify the root cause
 
 
 class LLMJudge:
@@ -58,15 +56,13 @@ Your task is to compare the agent's answer with the expected root cause and dete
 
 Classification criteria:
 - **True**: The agent correctly identified the root cause. The diagnosis captures the essential problem even if worded differently.
-- **False**: The agent identified a different problem or misdiagnosed the root cause.
-- **FalsePositive**: The expected root cause is empty (no fault exists), but the agent reported a problem.
-- **FalseNegative**: The expected root cause describes a real fault, but the agent reported no issues or said everything is normal.
+- **False**: The agent did not identify the root cause. This includes cases where the agent identified a different problem, misdiagnosed the root cause, or failed to identify any problem when one exists.
 
-You must respond with EXACTLY ONE of these four values: True, False, FalsePositive, or FalseNegative
+You must respond with EXACTLY ONE of these two values: True or False
 
 Your response should be in the following JSON format:
 {
-    "judgment": "True|False|FalsePositive|FalseNegative",
+    "judgment": "True|False",
     "reasoning": "Brief explanation of why you made this judgment"
 }"""
 
@@ -125,10 +121,6 @@ Evaluate whether the agent's answer correctly identifies the root cause. Respond
             return JudgmentResult.TRUE
         elif judgment_str == "false":
             return JudgmentResult.FALSE
-        elif judgment_str in ["falsepositive", "false positive"]:
-            return JudgmentResult.FALSE_POSITIVE
-        elif judgment_str in ["falsenegative", "false negative"]:
-            return JudgmentResult.FALSE_NEGATIVE
         else:
             raise ValueError(f"Could not parse judgment from response: {response_text}")
 
